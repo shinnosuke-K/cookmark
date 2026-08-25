@@ -1,13 +1,61 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useCreateBoard, useMyMember } from "@/lib/board";
+import { AddRecipeForm, type AddRecipeFormInitial } from "@/components/AddRecipeForm";
+import { PasteBanner } from "@/components/PasteBanner";
+import { RecipeCard } from "@/components/RecipeCard";
+import { extractAuthorHandle, parseInstagramUrl } from "@/lib/instagram";
+import { useBoardMembers, useTodoRecipes } from "@/lib/recipes";
+
+const EMPTY_FORM: AddRecipeFormInitial = {
+  url: "",
+  title: "",
+  authorHandle: "",
+  category: null,
+};
 
 export default function Home() {
   const { data: member, isLoading } = useMyMember();
   const createBoard = useCreateBoard();
   const [name, setName] = useState("");
+
+  const { data: recipes, isLoading: recipesLoading } = useTodoRecipes(
+    member?.board_id,
+  );
+  const { data: members } = useBoardMembers(member?.board_id);
+
+  const [formOpen, setFormOpen] = useState(false);
+  const [formInitial, setFormInitial] = useState<AddRecipeFormInitial>(EMPTY_FORM);
+
+  // Android share_target受け: ?url= / ?text= / ?title= があれば追加フォームを
+  // 開いて流し込み、URLバーからクエリを消す。マウント時に一度だけ実行する。
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const sharedUrl = params.get("url");
+    const sharedText = params.get("text");
+    const sharedTitle = params.get("title");
+    if (!sharedUrl && !sharedText && !sharedTitle) return;
+
+    const combined = [sharedUrl, sharedText].filter(Boolean).join(" ");
+    const parsed = parseInstagramUrl(combined);
+    // window.location はSSR/静的生成時に存在しないため、useStateの初期化子では
+    // なくここ(マウント後のみ実行される)で一度だけ読み、フォームへ反映する。
+    /* eslint-disable react-hooks/set-state-in-effect --
+       ブラウザのクエリ文字列という外部システムからの一度きりの読み込みであり、
+       useEffectの正当な用途(サーバー出力とズレないよう、マウント後にのみ
+       状態を同期する)にあたるため許容する。 */
+    setFormInitial({
+      url: parsed?.cleanUrl ?? sharedUrl ?? "",
+      title: sharedTitle ?? "",
+      authorHandle: extractAuthorHandle(combined) ?? "",
+      category: null,
+    });
+    setFormOpen(true);
+    /* eslint-enable react-hooks/set-state-in-effect */
+    window.history.replaceState(null, "", window.location.pathname);
+  }, []);
 
   function handleCreateBoard(e: React.FormEvent) {
     e.preventDefault();
@@ -79,10 +127,44 @@ export default function Home() {
     );
   }
 
-  // 参加済み: レシピ一覧は Task 3 で実装。ここはその置き換え起点。
+  const memberNames = new Map((members ?? []).map((m) => [m.id, m.display_name]));
+
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-2 p-8 text-center">
-      <p className="text-sm text-zinc-500">レシピはまだありません</p>
+    <div className="flex flex-1 flex-col gap-4 p-4">
+      <PasteBanner
+        onOpen={(initial) => {
+          setFormInitial(initial);
+          setFormOpen(true);
+        }}
+      />
+
+      {recipesLoading ? (
+        <p className="p-8 text-center text-sm text-zinc-500">読み込み中...</p>
+      ) : recipes && recipes.length > 0 ? (
+        <ul className="flex flex-col gap-3">
+          {recipes.map((recipe) => (
+            <li key={recipe.id}>
+              <RecipeCard
+                recipe={recipe}
+                adderName={memberNames.get(recipe.added_by)}
+              />
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="p-8 text-center text-sm text-zinc-500">
+          レシピはまだありません。上のボタンから追加しましょう
+        </p>
+      )}
+
+      {formOpen && (
+        <AddRecipeForm
+          boardId={member.board_id}
+          memberId={member.id}
+          initial={formInitial}
+          onClose={() => setFormOpen(false)}
+        />
+      )}
     </div>
   );
 }
