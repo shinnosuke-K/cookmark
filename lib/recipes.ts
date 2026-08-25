@@ -14,6 +14,9 @@ export const archiveRecipesQueryKey = (boardId: string | undefined) =>
 export const boardMembersQueryKey = (boardId: string | undefined) =>
   ["boardMembers", boardId] as const;
 
+export const recipeQueryKey = (id: string | undefined) =>
+  ["recipe", id] as const;
+
 /** ボードの全メンバー(追加者名の表示用)。 */
 export async function getBoardMembers(boardId: string): Promise<Member[]> {
   const { data, error } = await supabase
@@ -73,6 +76,26 @@ export function useArchiveRecipes(boardId: string | undefined) {
     queryKey: archiveRecipesQueryKey(boardId),
     queryFn: () => getArchiveRecipes(boardId as string),
     enabled: !!boardId,
+  });
+}
+
+/** レシピ1件を取得する(詳細画面用)。見つからなければnull。 */
+export async function getRecipe(id: string): Promise<Recipe | null> {
+  const { data, error } = await supabase
+    .from("recipes")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error) throw error;
+  return data;
+}
+
+export function useRecipe(id: string | undefined) {
+  return useQuery({
+    queryKey: recipeQueryKey(id),
+    queryFn: () => getRecipe(id as string),
+    enabled: !!id,
   });
 }
 
@@ -154,6 +177,84 @@ export function useMarkRecipeCooked() {
   return useMutation({
     mutationFn: markRecipeCooked,
     onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: todoRecipesQueryKey(variables.boardId),
+      });
+      queryClient.invalidateQueries({
+        queryKey: archiveRecipesQueryKey(variables.boardId),
+      });
+    },
+  });
+}
+
+export interface UpdateRecipeInput {
+  id: string;
+  boardId: string;
+  title: string;
+  memo: string | null;
+  category: RecipeCategory | null;
+  /** 写真を差し替えた場合のみ指定する。undefinedなら既存の写真を保持する。 */
+  photoPath?: string;
+}
+
+/** 詳細画面での編集(タイトル・メモ・カテゴリ・写真)を保存する。 */
+export async function updateRecipe({
+  id,
+  title,
+  memo,
+  category,
+  photoPath,
+}: UpdateRecipeInput): Promise<Recipe> {
+  const update: Database["public"]["Tables"]["recipes"]["Update"] = {
+    title,
+    memo,
+    category,
+  };
+  if (photoPath !== undefined) update.photo_path = photoPath;
+
+  const { data, error } = await supabase
+    .from("recipes")
+    .update(update)
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+export function useUpdateRecipe() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: updateRecipe,
+    onSuccess: (recipe) => {
+      queryClient.setQueryData(recipeQueryKey(recipe.id), recipe);
+      queryClient.invalidateQueries({
+        queryKey: todoRecipesQueryKey(recipe.board_id),
+      });
+      queryClient.invalidateQueries({
+        queryKey: archiveRecipesQueryKey(recipe.board_id),
+      });
+    },
+  });
+}
+
+export interface DeleteRecipeInput {
+  id: string;
+  boardId: string;
+}
+
+export async function deleteRecipe({ id }: DeleteRecipeInput): Promise<void> {
+  const { error } = await supabase.from("recipes").delete().eq("id", id);
+  if (error) throw error;
+}
+
+export function useDeleteRecipe() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: deleteRecipe,
+    onSuccess: (_data, variables) => {
+      queryClient.removeQueries({ queryKey: recipeQueryKey(variables.id) });
       queryClient.invalidateQueries({
         queryKey: todoRecipesQueryKey(variables.boardId),
       });
