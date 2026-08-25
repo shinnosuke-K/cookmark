@@ -19,6 +19,8 @@ export async function getMyMember(): Promise<Member | null> {
     .from("members")
     .select("*")
     .eq("anon_user_id", session.user.id)
+    .order("created_at", { ascending: false })
+    .limit(1)
     .maybeSingle();
 
   if (error) throw error;
@@ -83,7 +85,10 @@ export function useJoinBoard() {
     mutationFn: ({ token, name }: { token: string; name: string }) =>
       joinBoard(token, name),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: myMemberQueryKey });
+      queryClient.invalidateQueries({
+        queryKey: myMemberQueryKey,
+        refetchType: "all",
+      });
     },
   });
 }

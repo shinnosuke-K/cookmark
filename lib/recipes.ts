@@ -183,6 +183,9 @@ export function useMarkRecipeCooked() {
       queryClient.invalidateQueries({
         queryKey: archiveRecipesQueryKey(variables.boardId),
       });
+      queryClient.invalidateQueries({
+        queryKey: recipeQueryKey(variables.id),
+      });
     },
   });
 }

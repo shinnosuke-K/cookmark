@@ -31,17 +31,38 @@ export default function RecipeDetailPage() {
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
 
-  // recipeが読み込まれた/切り替わったタイミングで編集フォームの初期値をセットする。
-  // useEffectではなく、レンダー中にidの変化を検知して直接setStateする
+  // recipeが読み込まれた/切り替わった、またはフォーム未編集のまま新しいデータが
+  // 届いたタイミングで編集フォームの初期値をセットする。
+  // useEffectではなく、レンダー中に変化を検知して直接setStateする
   // (CookedSheetのprevOpenと同じ「propの変化に応じてstateを調整する」パターン)。
-  const [loadedId, setLoadedId] = useState<string | null>(null);
-  if (recipe && recipe.id !== loadedId) {
-    setLoadedId(recipe.id);
+  const [dirty, setDirty] = useState(false);
+  const [seeded, setSeeded] = useState<{
+    id: string;
+    title: string;
+    memo: string;
+    category: RecipeCategory | null;
+  } | null>(null);
+  const needsReseed =
+    recipe &&
+    (!seeded ||
+      recipe.id !== seeded.id ||
+      (!dirty &&
+        (recipe.title !== seeded.title ||
+          (recipe.memo ?? "") !== seeded.memo ||
+          recipe.category !== seeded.category)));
+  if (needsReseed && recipe) {
+    setSeeded({
+      id: recipe.id,
+      title: recipe.title,
+      memo: recipe.memo ?? "",
+      category: recipe.category,
+    });
     setTitle(recipe.title);
     setMemo(recipe.memo ?? "");
     setCategory(recipe.category);
     setPhotoFile(null);
     setPhotoPreview(null);
+    setDirty(false);
   }
 
   function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -49,6 +70,7 @@ export default function RecipeDetailPage() {
     if (!file) return;
     setPhotoFile(file);
     setPhotoPreview(URL.createObjectURL(file));
+    setDirty(true);
   }
 
   async function handleSave() {
@@ -86,7 +108,10 @@ export default function RecipeDetailPage() {
         photoPath,
       },
       {
-        onSuccess: () => toast.success("保存しました"),
+        onSuccess: () => {
+          setDirty(false);
+          toast.success("保存しました");
+        },
         onError: () =>
           toast.error("保存に失敗しました。もう一度お試しください"),
       },
@@ -185,7 +210,10 @@ export default function RecipeDetailPage() {
           <input
             id="edit-title"
             value={title}
-            onChange={(e) => setTitle(e.target.value)}
+            onChange={(e) => {
+              setTitle(e.target.value);
+              setDirty(true);
+            }}
             className="mt-1 w-full rounded-lg border border-zinc-300 px-4 py-3 text-base"
           />
         </div>
@@ -199,7 +227,10 @@ export default function RecipeDetailPage() {
               <button
                 type="button"
                 key={c}
-                onClick={() => setCategory((prev) => (prev === c ? null : c))}
+                onClick={() => {
+                  setCategory((prev) => (prev === c ? null : c));
+                  setDirty(true);
+                }}
                 className={`min-h-[44px] rounded-full border px-4 text-sm font-medium ${
                   category === c
                     ? "border-orange-500 bg-orange-500 text-white"
@@ -222,7 +253,10 @@ export default function RecipeDetailPage() {
           <textarea
             id="edit-memo"
             value={memo}
-            onChange={(e) => setMemo(e.target.value)}
+            onChange={(e) => {
+              setMemo(e.target.value);
+              setDirty(true);
+            }}
             rows={3}
             placeholder="味付けのメモなど"
             className="mt-1 w-full rounded-lg border border-zinc-300 px-4 py-3 text-base"
