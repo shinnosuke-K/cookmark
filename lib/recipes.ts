@@ -1,12 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "./supabase";
 import type { Member } from "./board";
-import type { Database, RecipeCategory } from "./database.types";
+import type { Database, RecipeCategory, RecipeVerdict } from "./database.types";
 
 export type Recipe = Database["public"]["Tables"]["recipes"]["Row"];
 
 export const todoRecipesQueryKey = (boardId: string | undefined) =>
   ["recipes", "todo", boardId] as const;
+
+export const archiveRecipesQueryKey = (boardId: string | undefined) =>
+  ["recipes", "archive", boardId] as const;
 
 export const boardMembersQueryKey = (boardId: string | undefined) =>
   ["boardMembers", boardId] as const;
@@ -47,6 +50,28 @@ export function useTodoRecipes(boardId: string | undefined) {
   return useQuery({
     queryKey: todoRecipesQueryKey(boardId),
     queryFn: () => getTodoRecipes(boardId as string),
+    enabled: !!boardId,
+  });
+}
+
+/** 作った(status='cooked')レシピを新しい順(cooked_at基準、無ければcreated_at)で取得する。 */
+export async function getArchiveRecipes(boardId: string): Promise<Recipe[]> {
+  const { data, error } = await supabase
+    .from("recipes")
+    .select("*")
+    .eq("board_id", boardId)
+    .eq("status", "cooked")
+    .order("cooked_at", { ascending: false, nullsFirst: false })
+    .order("created_at", { ascending: false });
+
+  if (error) throw error;
+  return data;
+}
+
+export function useArchiveRecipes(boardId: string | undefined) {
+  return useQuery({
+    queryKey: archiveRecipesQueryKey(boardId),
+    queryFn: () => getArchiveRecipes(boardId as string),
     enabled: !!boardId,
   });
 }
@@ -93,24 +118,47 @@ export function useAddRecipe() {
   });
 }
 
+export interface MarkRecipeCookedInput {
+  id: string;
+  boardId: string;
+  /** CookedSheetで2択のどちらかを選んだ場合はその値、選ばずに閉じた場合はnull */
+  verdict: RecipeVerdict | null;
+  memo?: string | null;
+  photoPath?: string | null;
+}
+
 /**
- * 「作った!」の最短経路: status='cooked' に更新するだけ(verdictは付けない)。
- * Task 4でリピート確定/イマイチのボトムシートに置き換わる。
+ * 「作った!」を確定する。status='cooked' / verdict / cooked_at=now() を更新し、
+ * 指定があれば memo / photo_path も併せて更新する。
  */
+export async function markRecipeCooked({
+  id,
+  verdict,
+  memo,
+  photoPath,
+}: MarkRecipeCookedInput): Promise<void> {
+  const update: Database["public"]["Tables"]["recipes"]["Update"] = {
+    status: "cooked",
+    verdict,
+    cooked_at: new Date().toISOString(),
+  };
+  if (memo !== undefined) update.memo = memo;
+  if (photoPath !== undefined) update.photo_path = photoPath;
+
+  const { error } = await supabase.from("recipes").update(update).eq("id", id);
+  if (error) throw error;
+}
+
 export function useMarkRecipeCooked() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id }: { id: string; boardId: string }) => {
-      const { error } = await supabase
-        .from("recipes")
-        .update({ status: "cooked", cooked_at: new Date().toISOString() })
-        .eq("id", id);
-
-      if (error) throw error;
-    },
+    mutationFn: markRecipeCooked,
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({
         queryKey: todoRecipesQueryKey(variables.boardId),
+      });
+      queryClient.invalidateQueries({
+        queryKey: archiveRecipesQueryKey(variables.boardId),
       });
     },
   });
