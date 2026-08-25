@@ -66,6 +66,7 @@ as $$
   );
 $$;
 
+revoke execute on function is_board_member(uuid) from public;
 grant execute on function is_board_member(uuid) to authenticated;
 
 -- boards: 所属boardの行のみ閲覧可。作成・更新・削除はRPC(security definer)経由のみ。
@@ -143,6 +144,7 @@ begin
 end;
 $$;
 
+revoke execute on function create_board(text) from public;
 grant execute on function create_board(text) to authenticated;
 
 -- invite_tokenに一致するboardへ参加する。既存memberなら display_name を更新して成功扱い。
@@ -172,6 +174,7 @@ begin
 end;
 $$;
 
+revoke execute on function join_board(text, text) from public;
 grant execute on function join_board(text, text) to authenticated;
 
 -- ============================================================================
