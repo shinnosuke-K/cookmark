@@ -72,7 +72,7 @@ export default function Home() {
           </button>
         </form>
 
-        <p className="max-w-xs text-xs text-zinc-400">
+        <p className="max-w-xs text-sm text-zinc-400">
           パートナーがすでにボードを作っている場合は、届いた招待URLを開いて参加してください
         </p>
       </div>

@@ -53,7 +53,7 @@ export default function SettingsPage() {
 
       <section className="space-y-2">
         <h2 className="text-sm font-medium text-zinc-500">招待URL</h2>
-        <p className="text-xs text-zinc-400">
+        <p className="text-sm text-zinc-400">
           このURLをパートナーに送るとボードに参加できます。iOSでアプリのデータが消えてログインできなくなった場合も、このURLからもう一度参加できます。
         </p>
         <div className="flex items-center gap-2">

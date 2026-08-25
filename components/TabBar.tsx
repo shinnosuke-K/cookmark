@@ -29,7 +29,7 @@ export function TabBar() {
             <li key={tab.href} className="flex-1">
               <Link
                 href={tab.href}
-                className={`flex min-h-[56px] flex-col items-center justify-center gap-0.5 text-[11px] ${
+                className={`flex min-h-[56px] flex-col items-center justify-center gap-0.5 text-sm ${
                   active ? "text-orange-600" : "text-zinc-500"
                 }`}
               >
