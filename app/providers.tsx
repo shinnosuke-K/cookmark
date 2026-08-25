@@ -1,7 +1,8 @@
 "use client";
 
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryCache, QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState } from "react";
+import { toast } from "sonner";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -12,6 +13,13 @@ export function Providers({ children }: { children: React.ReactNode }) {
             refetchOnWindowFocus: true,
           },
         },
+        queryCache: new QueryCache({
+          onError: (error) => {
+            toast.error(
+              error instanceof Error ? error.message : "エラーが発生しました",
+            );
+          },
+        }),
       }),
   );
 
