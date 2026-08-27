@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import { Toaster } from "sonner";
 import { TabBar } from "@/components/TabBar";
 import { Providers } from "./providers";
 import "./globals.css";
@@ -45,13 +44,14 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="ja"
+      data-theme="light"
+      data-astryx-theme="neutral"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col text-[15px]">
         <Providers>
           <main className="flex flex-1 flex-col pb-20">{children}</main>
           <TabBar />
-          <Toaster position="top-center" richColors />
         </Providers>
       </body>
     </html>
