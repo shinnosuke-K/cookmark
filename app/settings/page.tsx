@@ -3,6 +3,7 @@
 import { Button } from "@astryxdesign/core/Button";
 import { Heading } from "@astryxdesign/core/Heading";
 import { HStack } from "@astryxdesign/core/HStack";
+import { StackItem } from "@astryxdesign/core/Stack";
 import { Text } from "@astryxdesign/core/Text";
 import { TextInput } from "@astryxdesign/core/TextInput";
 import { useToast } from "@astryxdesign/core/Toast";
@@ -64,17 +65,19 @@ export default function SettingsPage() {
         <Text type="label" color="secondary">
           招待URL
         </Text>
-        <Text type="supporting" color="secondary">
+        <Text type="body" color="secondary">
           このURLをパートナーに送るとボードに参加できます。iOSでアプリのデータが消えてログインできなくなった場合も、このURLからもう一度参加できます。
         </Text>
         <HStack gap={2} align="center">
-          <TextInput
-            label="招待URL"
-            isLabelHidden
-            isReadOnly
-            value={inviteUrl ?? ""}
-            className="min-w-0 flex-1"
-          />
+          <StackItem size="fill">
+            <TextInput
+              label="招待URL"
+              isLabelHidden
+              isReadOnly
+              value={inviteUrl ?? ""}
+              width="100%"
+            />
+          </StackItem>
           <Button
             label={copied ? "コピー済み" : "コピー"}
             variant="primary"

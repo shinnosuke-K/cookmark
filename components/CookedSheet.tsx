@@ -121,7 +121,7 @@ export function CookedSheet({ recipe, open, onOpenChange }: CookedSheetProps) {
       <VStack gap={4} padding={4}>
         <VStack gap={0.5}>
           <Heading level={2}>{recipe.title}</Heading>
-          <Text type="supporting" color="secondary">
+          <Text type="body" color="secondary">
             また作りたい?
           </Text>
         </VStack>

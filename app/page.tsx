@@ -122,7 +122,7 @@ export default function Home() {
           />
         </VStack>
 
-        <Text type="supporting" color="secondary" className="max-w-xs">
+        <Text type="body" color="secondary" className="max-w-xs">
           パートナーがすでにボードを作っている場合は、届いた招待URLを開いて参加してください
         </Text>
       </VStack>

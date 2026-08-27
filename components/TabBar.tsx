@@ -20,7 +20,7 @@ const TABS = [
  * (SideNavのモバイル代替)であり、タップ数最小の原則(常時表示ナビ)に反するため
  * 採用しない。代わりにAstryxのレイアウト・タイポグラフィプリミティブ(HStack/
  * VStack/Text)で構成し、配色はトークンブリッジ経由のTailwindユーティリティ
- * (bg-surface/border-default/text-accent等)で当てる。
+ * (bg-surface/border-border/text-accent等)で当てる。
  */
 export function TabBar() {
   const pathname = usePathname();
@@ -31,7 +31,7 @@ export function TabBar() {
   return (
     <HStack
       as="nav"
-      className="fixed inset-x-0 bottom-0 z-10 border-t border-default bg-surface/95 backdrop-blur"
+      className="fixed inset-x-0 bottom-0 z-10 border-t border-border bg-surface/95 backdrop-blur"
       style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
     >
       {TABS.map((tab) => {
@@ -48,7 +48,7 @@ export function TabBar() {
               <span className="text-lg leading-none" aria-hidden>
                 {tab.icon}
               </span>
-              <Text type="supporting" color={active ? "accent" : "secondary"}>
+              <Text type="body" color={active ? "accent" : "secondary"}>
                 {tab.label}
               </Text>
             </VStack>

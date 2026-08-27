@@ -102,7 +102,7 @@ export default function TonightPage() {
                 {pick.title}
               </Text>
               {pick.author_handle && (
-                <Text type="supporting" color="secondary">
+                <Text type="body" color="secondary">
                   @{pick.author_handle}
                 </Text>
               )}

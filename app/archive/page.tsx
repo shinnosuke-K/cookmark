@@ -66,7 +66,6 @@ export default function ArchivePage() {
         label="リピート確定のみ表示"
         value={repeatOnly}
         onChange={setRepeatOnly}
-        labelSpacing="spread"
         className="min-h-11"
       />
 

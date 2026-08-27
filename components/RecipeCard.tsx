@@ -36,7 +36,7 @@ export function RecipeCard({ recipe, adderName }: RecipeCardProps) {
             {recipe.title}
           </Text>
           {subtitle && (
-            <Text type="supporting" color="secondary" maxLines={1}>
+            <Text type="body" color="secondary" maxLines={1}>
               {subtitle}
             </Text>
           )}

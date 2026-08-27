@@ -186,7 +186,7 @@ export default function RecipeDetailPage() {
             {recipe.title}
           </Heading>
           {recipe.author_handle && (
-            <Text type="supporting" color="secondary" maxLines={1}>
+            <Text type="body" color="secondary" maxLines={1}>
               @{recipe.author_handle}
             </Text>
           )}
