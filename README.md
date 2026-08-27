@@ -40,6 +40,17 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=xxxxxxxx
 
 ### 5. ローカルで動かす(クラウドのSupabaseを使う場合)
 
+Node.jsとSupabase CLIのバージョンは [mise](https://mise.jdx.dev/) で管理しています(`mise.toml`)。
+
+```bash
+# 初回のみ: miseのインストールとシェルへの組み込み
+brew install mise
+echo 'eval "$(mise activate zsh)"' >> ~/.zshrc && exec zsh
+
+# プロジェクトで固定されたツール(Node.js / Supabase CLI)を導入
+mise install
+```
+
 ```bash
 npm install
 npm run dev
@@ -56,7 +67,7 @@ npm run dev
 
 ```bash
 # Supabaseローカルスタックを起動(初回はイメージ取得で数分かかる)
-npx supabase start
+supabase start
 
 # 起動ログに表示される ANON_KEY を .env.local に設定
 # NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
@@ -67,18 +78,18 @@ npm run dev
 
 - マイグレーション(`supabase/migrations/`)と匿名認証の有効化(`supabase/config.toml` の `enable_anonymous_sign_ins = true`)は自動で適用されます
 - 管理画面(Supabase Studio)は `http://127.0.0.1:54323`
-- データを初期化したいときは `npx supabase db reset`
+- データを初期化したいときは `supabase db reset`
 
 2回目以降の日常の起動・停止は次の2コマンドだけです。
 
 ```bash
 # 起動(Supabaseローカルスタック → devサーバーの順)
-npx supabase start && npm run dev
+supabase start && npm run dev
 ```
 
 ```bash
 # 停止(データは保持されます)
-npx supabase stop
+supabase stop
 ```
 
 ### 6. Vercelにデプロイする
