@@ -68,7 +68,18 @@ npm run dev
 - マイグレーション(`supabase/migrations/`)と匿名認証の有効化(`supabase/config.toml` の `enable_anonymous_sign_ins = true`)は自動で適用されます
 - 管理画面(Supabase Studio)は `http://127.0.0.1:54323`
 - データを初期化したいときは `npx supabase db reset`
-- 終了は `npx supabase stop`(データは保持されます)
+
+2回目以降の日常の起動・停止は次の2コマンドだけです。
+
+```bash
+# 起動(Supabaseローカルスタック → devサーバーの順)
+npx supabase start && npm run dev
+```
+
+```bash
+# 停止(データは保持されます)
+npx supabase stop
+```
 
 ### 6. Vercelにデプロイする
 
