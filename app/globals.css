@@ -1,8 +1,19 @@
+/*
+ * レイヤー順を明示的に宣言してからそれぞれをインポートする。これが無いと
+ * Tailwindの`base`(preflight)レイヤーがAstryxコンポーネントのCSS
+ * (`astryx-base`レイヤー)より後に評価され、ボタンなどの背景色が
+ * transparentに巻き戻ってしまう。Astryx公式のTailwind統合手順
+ * (`astryx docs styling`)に準拠。
+ */
+@layer reset, theme, base, astryx-base, astryx-theme, components, utilities;
+
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/preflight.css" layer(base);
 @import "@astryxdesign/core/reset.css";
 @import "@astryxdesign/core/astryx.css";
 @import "@astryxdesign/theme-neutral/theme.css";
-@import "tailwindcss";
 @import "@astryxdesign/core/tailwind-theme.css";
+@import "tailwindcss/utilities.css" layer(utilities);
 
 :root {
   --background: #ffffff;
