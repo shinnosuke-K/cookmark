@@ -1,6 +1,11 @@
 "use client";
 
-import Link from "next/link";
+import { Button } from "@astryxdesign/core/Button";
+import { ClickableCard } from "@astryxdesign/core/ClickableCard";
+import { HStack } from "@astryxdesign/core/HStack";
+import { Text } from "@astryxdesign/core/Text";
+import { Token } from "@astryxdesign/core/Token";
+import { VStack } from "@astryxdesign/core/VStack";
 import { useState } from "react";
 import { CookedSheet } from "./CookedSheet";
 import { RecipeThumbnail } from "./RecipeThumbnail";
@@ -14,45 +19,42 @@ interface RecipeCardProps {
 export function RecipeCard({ recipe, adderName }: RecipeCardProps) {
   const [sheetOpen, setSheetOpen] = useState(false);
 
+  const subtitle = [
+    recipe.author_handle ? `@${recipe.author_handle}` : null,
+    adderName ? `${adderName}が追加` : null,
+  ]
+    .filter(Boolean)
+    .join(" ・ ");
+
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-zinc-200 bg-white p-3">
-      <Link
-        href={`/recipe/${recipe.id}`}
-        className="flex min-w-0 flex-1 items-center gap-3"
-      >
+    <ClickableCard label={recipe.title} href={`/recipe/${recipe.id}`}>
+      <HStack gap={3} align="center">
         <RecipeThumbnail photoPath={recipe.photo_path} />
 
-        <div className="flex min-w-0 flex-1 flex-col justify-center gap-1">
-          <p className="truncate text-base font-medium">{recipe.title}</p>
-          <p className="truncate text-sm text-zinc-500">
-            {[
-              recipe.author_handle ? `@${recipe.author_handle}` : null,
-              adderName ? `${adderName}が追加` : null,
-            ]
-              .filter(Boolean)
-              .join(" ・ ")}
-          </p>
-          {recipe.category && (
-            <span className="w-fit rounded-full bg-orange-50 px-2 py-0.5 text-sm text-orange-600">
-              {recipe.category}
-            </span>
+        <VStack gap={1} hAlign="start" className="min-w-0 flex-1">
+          <Text type="body" weight="medium" maxLines={1}>
+            {recipe.title}
+          </Text>
+          {subtitle && (
+            <Text type="supporting" color="secondary" maxLines={1}>
+              {subtitle}
+            </Text>
           )}
-        </div>
-      </Link>
+          {recipe.category && (
+            <Token label={recipe.category} color="orange" size="sm" />
+          )}
+        </VStack>
 
-      <button
-        type="button"
-        onClick={() => setSheetOpen(true)}
-        className="min-h-[44px] shrink-0 rounded-lg bg-orange-500 px-4 text-sm font-semibold text-white"
-      >
-        作った!
-      </button>
+        <Button
+          label="作った!"
+          variant="primary"
+          size="lg"
+          className="min-h-11 shrink-0"
+          onClick={() => setSheetOpen(true)}
+        />
+      </HStack>
 
-      <CookedSheet
-        recipe={recipe}
-        open={sheetOpen}
-        onOpenChange={setSheetOpen}
-      />
-    </div>
+      <CookedSheet recipe={recipe} open={sheetOpen} onOpenChange={setSheetOpen} />
+    </ClickableCard>
   );
 }
