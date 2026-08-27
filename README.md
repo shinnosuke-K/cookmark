@@ -38,7 +38,7 @@ NEXT_PUBLIC_SUPABASE_URL=https://xxxxxxxx.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=xxxxxxxx
 ```
 
-### 5. ローカルで動かす
+### 5. ローカルで動かす(クラウドのSupabaseを使う場合)
 
 ```bash
 npm install
@@ -48,6 +48,27 @@ npm run dev
 `http://localhost:3000` を開くとボード作成/参加画面が表示されます。2端末(2ブラウザ)で同じ招待URLから参加すると、同一ボードを共有できているか確認できます。
 
 なお本番ビルド(`npm run build`)は Serwist の InjectManifest 戦略(webpackプラグイン)を使う都合上 `next build --webpack` を実行します(Next.js 16のデフォルトであるTurbopackは現時点でServwistの当該戦略に未対応のため)。`npm run build` にすでに組み込まれているので、意識する必要はありません。
+
+
+### 5b. すべてローカルで動かす(Docker + Supabase CLI)
+
+クラウドにプロジェクトを作らなくても、Dockerがあれば全部ローカルで試せます。
+
+```bash
+# Supabaseローカルスタックを起動(初回はイメージ取得で数分かかる)
+npx supabase start
+
+# 起動ログに表示される ANON_KEY を .env.local に設定
+# NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
+# NEXT_PUBLIC_SUPABASE_ANON_KEY=<ANON_KEY>
+
+npm run dev
+```
+
+- マイグレーション(`supabase/migrations/`)と匿名認証の有効化(`supabase/config.toml` の `enable_anonymous_sign_ins = true`)は自動で適用されます
+- 管理画面(Supabase Studio)は `http://127.0.0.1:54323`
+- データを初期化したいときは `npx supabase db reset`
+- 終了は `npx supabase stop`(データは保持されます)
 
 ### 6. Vercelにデプロイする
 
