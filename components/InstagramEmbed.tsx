@@ -1,5 +1,6 @@
 "use client";
 
+import { Card } from "@astryxdesign/core/Card";
 import { useEffect, useRef, useState } from "react";
 
 interface InstagramEmbedProps {
@@ -50,7 +51,7 @@ export function InstagramEmbed({ shortcode }: InstagramEmbedProps) {
   if (failed) return null;
 
   return (
-    <div ref={containerRef} className="w-full overflow-hidden rounded-xl bg-zinc-50">
+    <Card ref={containerRef} variant="muted" padding={0} className="w-full overflow-hidden">
       {visible && (
         <iframe
           src={`https://www.instagram.com/p/${shortcode}/embed/captioned/`}
@@ -61,6 +62,6 @@ export function InstagramEmbed({ shortcode }: InstagramEmbedProps) {
           title="Instagram投稿"
         />
       )}
-    </div>
+    </Card>
   );
 }

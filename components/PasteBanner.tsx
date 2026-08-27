@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@astryxdesign/core/Button";
 import { extractAuthorHandle, parseInstagramUrl } from "@/lib/instagram";
 import type { AddRecipeFormInitial } from "./AddRecipeForm";
 
@@ -30,12 +31,13 @@ export function PasteBanner({ onOpen }: PasteBannerProps) {
   }
 
   return (
-    <button
-      type="button"
+    <Button
+      label="+ 貼り付けて追加"
+      variant="primary"
+      size="lg"
+      width="100%"
+      className="min-h-14"
       onClick={handleTap}
-      className="min-h-[56px] w-full rounded-xl bg-orange-500 text-base font-semibold text-white"
-    >
-      + 貼り付けて追加
-    </button>
+    />
   );
 }

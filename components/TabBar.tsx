@@ -1,5 +1,8 @@
 "use client";
 
+import { HStack } from "@astryxdesign/core/HStack";
+import { Text } from "@astryxdesign/core/Text";
+import { VStack } from "@astryxdesign/core/VStack";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -10,6 +13,15 @@ const TABS = [
   { href: "/settings", label: "設定", icon: "⚙️" },
 ] as const;
 
+/**
+ * 画面下部の固定タブバー。
+ *
+ * Astryxの`MobileNav`は永続的なタブバーではなく、開閉するドローワーコンポーネント
+ * (SideNavのモバイル代替)であり、タップ数最小の原則(常時表示ナビ)に反するため
+ * 採用しない。代わりにAstryxのレイアウト・タイポグラフィプリミティブ(HStack/
+ * VStack/Text)で構成し、配色はトークンブリッジ経由のTailwindユーティリティ
+ * (bg-surface/border-default/text-accent等)で当てる。
+ */
 export function TabBar() {
   const pathname = usePathname();
 
@@ -17,31 +29,32 @@ export function TabBar() {
   if (pathname.startsWith("/join")) return null;
 
   return (
-    <nav
-      className="fixed inset-x-0 bottom-0 z-10 border-t border-zinc-200 bg-white/95 backdrop-blur"
+    <HStack
+      as="nav"
+      className="fixed inset-x-0 bottom-0 z-10 border-t border-default bg-surface/95 backdrop-blur"
       style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
     >
-      <ul className="flex">
-        {TABS.map((tab) => {
-          const active =
-            tab.href === "/" ? pathname === "/" : pathname.startsWith(tab.href);
-          return (
-            <li key={tab.href} className="flex-1">
-              <Link
-                href={tab.href}
-                className={`flex min-h-[56px] flex-col items-center justify-center gap-0.5 text-sm ${
-                  active ? "text-orange-600" : "text-zinc-500"
-                }`}
-              >
-                <span className="text-lg leading-none" aria-hidden>
-                  {tab.icon}
-                </span>
-                <span>{tab.label}</span>
-              </Link>
-            </li>
-          );
-        })}
-      </ul>
-    </nav>
+      {TABS.map((tab) => {
+        const active =
+          tab.href === "/" ? pathname === "/" : pathname.startsWith(tab.href);
+        return (
+          <Link key={tab.href} href={tab.href} className="min-w-0 flex-1">
+            <VStack
+              gap={0.5}
+              hAlign="center"
+              justify="center"
+              className="min-h-[56px]"
+            >
+              <span className="text-lg leading-none" aria-hidden>
+                {tab.icon}
+              </span>
+              <Text type="supporting" color={active ? "accent" : "secondary"}>
+                {tab.label}
+              </Text>
+            </VStack>
+          </Link>
+        );
+      })}
+    </HStack>
   );
 }
