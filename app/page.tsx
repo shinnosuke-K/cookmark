@@ -1,7 +1,13 @@
 "use client";
 
+import { Button } from "@astryxdesign/core/Button";
+import { EmptyState } from "@astryxdesign/core/EmptyState";
+import { Heading } from "@astryxdesign/core/Heading";
+import { Text } from "@astryxdesign/core/Text";
+import { TextInput } from "@astryxdesign/core/TextInput";
+import { useToast } from "@astryxdesign/core/Toast";
+import { VStack } from "@astryxdesign/core/VStack";
 import { useEffect, useState } from "react";
-import { toast } from "sonner";
 import { useCreateBoard, useMyMember } from "@/lib/board";
 import { AddRecipeForm, type AddRecipeFormInitial } from "@/components/AddRecipeForm";
 import { PasteBanner } from "@/components/PasteBanner";
@@ -17,6 +23,7 @@ const EMPTY_FORM: AddRecipeFormInitial = {
 };
 
 export default function Home() {
+  const toast = useToast();
   const { data: member, isLoading } = useMyMember();
   const createBoard = useCreateBoard();
   const [name, setName] = useState("");
@@ -61,76 +68,71 @@ export default function Home() {
     e.preventDefault();
     const trimmed = name.trim();
     if (!trimmed) {
-      toast.error("名前を入力してください");
+      toast({ type: "error", body: "名前を入力してください" });
       return;
     }
     createBoard.mutate(trimmed, {
       onSuccess: () => {
-        toast.success("ボードを作成しました!");
+        toast({ body: "ボードを作成しました!" });
       },
       onError: () => {
-        toast.error("ボードの作成に失敗しました。もう一度お試しください");
+        toast({ type: "error", body: "ボードの作成に失敗しました。もう一度お試しください" });
       },
     });
   }
 
   if (isLoading) {
     return (
-      <div className="flex flex-1 items-center justify-center p-8 text-sm text-zinc-500">
+      <Text type="body" color="secondary" className="flex flex-1 items-center justify-center p-8">
         読み込み中...
-      </div>
+      </Text>
     );
   }
 
   if (!member) {
     return (
-      <div className="flex flex-1 flex-col items-center justify-center gap-8 p-6 text-center">
-        <div>
-          <h1 className="text-2xl font-semibold">Cookmarkへようこそ</h1>
-          <p className="mt-2 text-sm text-zinc-500">
+      <VStack gap={8} hAlign="center" justify="center" className="flex-1 p-6 text-center">
+        <VStack gap={2}>
+          <Heading level={1}>Cookmarkへようこそ</Heading>
+          <Text type="body" color="secondary">
             夫婦でInstagramのレシピを共有・管理するアプリです
-          </p>
-        </div>
+          </Text>
+        </VStack>
 
-        <form
+        <VStack
+          as="form"
           onSubmit={handleCreateBoard}
-          className="w-full max-w-xs space-y-4 text-left"
+          gap={4}
+          className="w-full max-w-xs text-left"
         >
-          <div>
-            <label
-              htmlFor="name"
-              className="block text-sm font-medium text-zinc-700"
-            >
-              あなたの名前
-            </label>
-            <input
-              id="name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="例: 夫、妻"
-              className="mt-1 w-full rounded-lg border border-zinc-300 px-4 py-3 text-base"
-            />
-          </div>
-          <button
+          <TextInput
+            label="あなたの名前"
+            value={name}
+            onChange={setName}
+            placeholder="例: 夫、妻"
+          />
+          <Button
             type="submit"
-            disabled={createBoard.isPending}
-            className="min-h-[44px] w-full rounded-lg bg-orange-500 py-3 text-base font-semibold text-white disabled:opacity-50"
-          >
-            {createBoard.isPending ? "作成中..." : "新しくボードを作る"}
-          </button>
-        </form>
+            label={createBoard.isPending ? "作成中..." : "新しくボードを作る"}
+            variant="primary"
+            size="lg"
+            width="100%"
+            className="min-h-11"
+            isDisabled={createBoard.isPending}
+          />
+        </VStack>
 
-        <p className="max-w-xs text-sm text-zinc-400">
+        <Text type="supporting" color="secondary" className="max-w-xs">
           パートナーがすでにボードを作っている場合は、届いた招待URLを開いて参加してください
-        </p>
-      </div>
+        </Text>
+      </VStack>
     );
   }
 
   const memberNames = new Map((members ?? []).map((m) => [m.id, m.display_name]));
 
   return (
-    <div className="flex flex-1 flex-col gap-4 p-4">
+    <VStack gap={4} className="flex-1 p-4">
       <PasteBanner
         onOpen={(initial) => {
           setFormInitial(initial);
@@ -139,9 +141,11 @@ export default function Home() {
       />
 
       {recipesLoading ? (
-        <p className="p-8 text-center text-sm text-zinc-500">読み込み中...</p>
+        <Text type="body" color="secondary" className="p-8 text-center">
+          読み込み中...
+        </Text>
       ) : recipes && recipes.length > 0 ? (
-        <ul className="flex flex-col gap-3">
+        <VStack as="ul" gap={3}>
           {recipes.map((recipe) => (
             <li key={recipe.id}>
               <RecipeCard
@@ -150,11 +154,12 @@ export default function Home() {
               />
             </li>
           ))}
-        </ul>
+        </VStack>
       ) : (
-        <p className="p-8 text-center text-sm text-zinc-500">
-          レシピはまだありません。上のボタンから追加しましょう
-        </p>
+        <EmptyState
+          title="レシピはまだありません"
+          description="上のボタンから追加しましょう"
+        />
       )}
 
       {formOpen && (
@@ -165,6 +170,6 @@ export default function Home() {
           onClose={() => setFormOpen(false)}
         />
       )}
-    </div>
+    </VStack>
   );
 }

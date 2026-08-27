@@ -1,9 +1,21 @@
 "use client";
 
-import Link from "next/link";
+import { Button } from "@astryxdesign/core/Button";
+import { Card } from "@astryxdesign/core/Card";
+import { FileInput } from "@astryxdesign/core/FileInput";
+import { Heading } from "@astryxdesign/core/Heading";
+import { HStack } from "@astryxdesign/core/HStack";
+import { Link } from "@astryxdesign/core/Link";
+import { Text } from "@astryxdesign/core/Text";
+import { TextArea } from "@astryxdesign/core/TextArea";
+import { TextInput } from "@astryxdesign/core/TextInput";
+import { Thumbnail } from "@astryxdesign/core/Thumbnail";
+import { useToast } from "@astryxdesign/core/Toast";
+import { Token } from "@astryxdesign/core/Token";
+import { ToggleButton, ToggleButtonGroup } from "@astryxdesign/core/ToggleButton";
+import { VStack } from "@astryxdesign/core/VStack";
 import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
-import { toast } from "sonner";
 import { InstagramEmbed } from "@/components/InstagramEmbed";
 import { RecipeThumbnail } from "@/components/RecipeThumbnail";
 import type { RecipeCategory } from "@/lib/database.types";
@@ -18,6 +30,7 @@ const VERDICT_LABEL: Record<"repeat" | "meh", string> = {
 };
 
 export default function RecipeDetailPage() {
+  const toast = useToast();
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const { data: recipe, isLoading } = useRecipe(params.id);
@@ -65,11 +78,10 @@ export default function RecipeDetailPage() {
     setDirty(false);
   }
 
-  function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  function handlePhotoChange(files: File | File[] | null) {
+    const file = Array.isArray(files) ? (files[0] ?? null) : files;
     setPhotoFile(file);
-    setPhotoPreview(URL.createObjectURL(file));
+    setPhotoPreview(file ? URL.createObjectURL(file) : null);
     setDirty(true);
   }
 
@@ -77,7 +89,7 @@ export default function RecipeDetailPage() {
     if (!recipe) return;
     const trimmedTitle = title.trim();
     if (!trimmedTitle) {
-      toast.error("タイトルを入力してください");
+      toast({ type: "error", body: "タイトルを入力してください" });
       return;
     }
 
@@ -91,7 +103,7 @@ export default function RecipeDetailPage() {
           file: photoFile,
         });
       } catch {
-        toast.error("写真のアップロードに失敗しました");
+        toast({ type: "error", body: "写真のアップロードに失敗しました" });
         setUploading(false);
         return;
       }
@@ -110,10 +122,10 @@ export default function RecipeDetailPage() {
       {
         onSuccess: () => {
           setDirty(false);
-          toast.success("保存しました");
+          toast({ body: "保存しました" });
         },
         onError: () =>
-          toast.error("保存に失敗しました。もう一度お試しください"),
+          toast({ type: "error", body: "保存に失敗しました。もう一度お試しください" }),
       },
     );
   }
@@ -126,31 +138,31 @@ export default function RecipeDetailPage() {
       { id: recipe.id, boardId: recipe.board_id },
       {
         onSuccess: () => {
-          toast.success("削除しました");
+          toast({ body: "削除しました" });
           router.push("/");
         },
         onError: () =>
-          toast.error("削除に失敗しました。もう一度お試しください"),
+          toast({ type: "error", body: "削除に失敗しました。もう一度お試しください" }),
       },
     );
   }
 
   if (isLoading) {
     return (
-      <div className="flex flex-1 items-center justify-center p-8 text-sm text-zinc-500">
+      <Text type="body" color="secondary" className="flex flex-1 items-center justify-center p-8">
         読み込み中...
-      </div>
+      </Text>
     );
   }
 
   if (!recipe) {
     return (
-      <div className="flex flex-1 flex-col items-center justify-center gap-3 p-8 text-center text-sm text-zinc-500">
-        <p>レシピが見つかりません</p>
-        <Link href="/" className="font-medium text-orange-600 underline">
-          ホームへ戻る
-        </Link>
-      </div>
+      <VStack gap={3} hAlign="center" justify="center" className="flex-1 p-8 text-center">
+        <Text type="body" color="secondary">
+          レシピが見つかりません
+        </Text>
+        <Link href="/">ホームへ戻る</Link>
+      </VStack>
     );
   }
 
@@ -162,149 +174,102 @@ export default function RecipeDetailPage() {
       : "未挑戦";
 
   return (
-    <div className="flex flex-1 flex-col gap-6 p-4 pb-10">
-      <Link href="/" className="text-sm text-zinc-500">
+    <VStack gap={6} className="flex-1 p-4 pb-10">
+      <Link href="/" size="sm" color="secondary">
         ← ホームへ戻る
       </Link>
 
-      <div className="flex items-start gap-3">
+      <HStack gap={3} align="start">
         <RecipeThumbnail photoPath={recipe.photo_path} />
-        <div className="min-w-0 flex-1">
-          <h1 className="text-lg font-semibold">{recipe.title}</h1>
+        <VStack gap={1} hAlign="start" className="min-w-0 flex-1">
+          <Heading level={1} maxLines={1}>
+            {recipe.title}
+          </Heading>
           {recipe.author_handle && (
-            <p className="truncate text-sm text-zinc-500">
+            <Text type="supporting" color="secondary" maxLines={1}>
               @{recipe.author_handle}
-            </p>
+            </Text>
           )}
-          <span className="mt-1 inline-block rounded-full bg-orange-50 px-2 py-0.5 text-sm text-orange-600">
-            {statusLabel}
-          </span>
-        </div>
-      </div>
+          <Token label={statusLabel} color={recipe.verdict === "repeat" ? "orange" : "gray"} />
+        </VStack>
+      </HStack>
 
       {recipe.instagram_url && (
-        <a
-          href={recipe.instagram_url}
-          target="_blank"
-          rel="noreferrer"
-          className="text-sm font-medium text-orange-600 underline"
-        >
+        <Link href={recipe.instagram_url} isExternalLink>
           Instagramで開く
-        </a>
+        </Link>
       )}
 
-      {recipe.post_shortcode && (
-        <InstagramEmbed shortcode={recipe.post_shortcode} />
-      )}
+      {recipe.post_shortcode && <InstagramEmbed shortcode={recipe.post_shortcode} />}
 
-      <section className="space-y-4 rounded-xl border border-zinc-200 p-4">
-        <h2 className="text-base font-semibold">編集</h2>
+      <Card>
+        <VStack gap={4}>
+          <Heading level={2}>編集</Heading>
 
-        <div>
-          <label
-            htmlFor="edit-title"
-            className="block text-sm font-medium text-zinc-700"
-          >
-            タイトル
-          </label>
-          <input
-            id="edit-title"
-            value={title}
-            onChange={(e) => {
-              setTitle(e.target.value);
-              setDirty(true);
-            }}
-            className="mt-1 w-full rounded-lg border border-zinc-300 px-4 py-3 text-base"
-          />
-        </div>
+          <TextInput label="タイトル" value={title} onChange={(v) => { setTitle(v); setDirty(true); }} />
 
-        <div>
-          <span className="block text-sm font-medium text-zinc-700">
-            カテゴリ
-          </span>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {CATEGORIES.map((c) => (
-              <button
-                type="button"
-                key={c}
-                onClick={() => {
-                  setCategory((prev) => (prev === c ? null : c));
-                  setDirty(true);
-                }}
-                className={`min-h-[44px] rounded-full border px-4 text-sm font-medium ${
-                  category === c
-                    ? "border-orange-500 bg-orange-500 text-white"
-                    : "border-zinc-300 text-zinc-600"
-                }`}
-              >
-                {c}
-              </button>
-            ))}
-          </div>
-        </div>
+          <VStack gap={2}>
+            <Text type="label">カテゴリ</Text>
+            <ToggleButtonGroup
+              label="カテゴリ"
+              value={category}
+              onChange={(value) => {
+                setCategory(value as RecipeCategory | null);
+                setDirty(true);
+              }}
+            >
+              {CATEGORIES.map((c) => (
+                <ToggleButton key={c} value={c} label={c} />
+              ))}
+            </ToggleButtonGroup>
+          </VStack>
 
-        <div>
-          <label
-            htmlFor="edit-memo"
-            className="block text-sm font-medium text-zinc-700"
-          >
-            メモ
-          </label>
-          <textarea
-            id="edit-memo"
+          <TextArea
+            label="メモ"
             value={memo}
-            onChange={(e) => {
-              setMemo(e.target.value);
-              setDirty(true);
-            }}
+            onChange={(v) => { setMemo(v); setDirty(true); }}
             rows={3}
             placeholder="味付けのメモなど"
-            className="mt-1 w-full rounded-lg border border-zinc-300 px-4 py-3 text-base"
           />
-        </div>
 
-        <div>
-          <label
-            htmlFor="edit-photo"
-            className="block text-sm font-medium text-zinc-700"
-          >
-            写真
-          </label>
-          <input
-            id="edit-photo"
-            type="file"
-            accept="image/*"
-            onChange={handlePhotoChange}
-            className="mt-1 w-full text-sm"
-          />
-          {photoPreview && (
-            // eslint-disable-next-line @next/next/no-img-element -- ローカルファイルのプレビュー用objectURL
-            <img
-              src={photoPreview}
-              alt=""
-              className="mt-2 h-24 w-24 rounded-lg object-cover"
+          <VStack gap={2}>
+            <FileInput
+              label="写真"
+              accept="image/*"
+              value={photoFile}
+              onChange={handlePhotoChange}
             />
-          )}
-        </div>
+            {photoPreview && (
+              <Thumbnail
+                src={photoPreview}
+                alt=""
+                onRemove={() => handlePhotoChange(null)}
+                className="h-24 w-24"
+              />
+            )}
+          </VStack>
 
-        <button
-          type="button"
-          onClick={handleSave}
-          disabled={updateRecipe.isPending || uploading}
-          className="min-h-[44px] w-full rounded-lg bg-orange-500 text-base font-semibold text-white disabled:opacity-50"
-        >
-          {updateRecipe.isPending || uploading ? "保存中..." : "保存する"}
-        </button>
-      </section>
+          <Button
+            label={updateRecipe.isPending || uploading ? "保存中..." : "保存する"}
+            variant="primary"
+            size="lg"
+            width="100%"
+            className="min-h-11"
+            isDisabled={updateRecipe.isPending || uploading}
+            onClick={handleSave}
+          />
+        </VStack>
+      </Card>
 
-      <button
-        type="button"
+      <Button
+        label="削除する"
+        variant="destructive"
+        size="lg"
+        width="100%"
+        className="min-h-11"
+        isDisabled={deleteRecipe.isPending}
         onClick={handleDelete}
-        disabled={deleteRecipe.isPending}
-        className="min-h-[44px] w-full rounded-lg border border-red-300 text-base font-semibold text-red-600 disabled:opacity-50"
-      >
-        削除する
-      </button>
-    </div>
+      />
+    </VStack>
   );
 }

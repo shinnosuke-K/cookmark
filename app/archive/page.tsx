@@ -1,5 +1,12 @@
 "use client";
 
+import { EmptyState } from "@astryxdesign/core/EmptyState";
+import { Heading } from "@astryxdesign/core/Heading";
+import { Switch } from "@astryxdesign/core/Switch";
+import { Text } from "@astryxdesign/core/Text";
+import { TextInput } from "@astryxdesign/core/TextInput";
+import { ToggleButton, ToggleButtonGroup } from "@astryxdesign/core/ToggleButton";
+import { VStack } from "@astryxdesign/core/VStack";
 import { useMemo, useState } from "react";
 import { ArchiveRecipeCard } from "@/components/ArchiveRecipeCard";
 import { useMyMember } from "@/lib/board";
@@ -37,64 +44,57 @@ export default function ArchivePage() {
 
   if (memberLoading) {
     return (
-      <div className="flex flex-1 items-center justify-center p-8 text-sm text-zinc-500">
+      <Text type="body" color="secondary" className="flex flex-1 items-center justify-center p-8">
         読み込み中...
-      </div>
+      </Text>
     );
   }
 
   if (!member) {
     return (
-      <div className="flex flex-1 flex-col items-center justify-center gap-2 p-8 text-center text-sm text-zinc-500">
-        <p>まだボードに参加していません</p>
-      </div>
+      <Text type="body" color="secondary" className="flex flex-1 items-center justify-center p-8 text-center">
+        まだボードに参加していません
+      </Text>
     );
   }
 
   return (
-    <div className="flex flex-1 flex-col gap-4 p-4">
-      <h1 className="text-xl font-semibold">アーカイブ</h1>
+    <VStack gap={4} className="flex-1 p-4">
+      <Heading level={1}>アーカイブ</Heading>
 
-      <button
-        type="button"
-        onClick={() => setRepeatOnly((v) => !v)}
-        className={`min-h-[48px] w-full rounded-xl text-base font-semibold ${
-          repeatOnly
-            ? "bg-orange-500 text-white"
-            : "border border-zinc-300 text-zinc-600"
-        }`}
-      >
-        {repeatOnly ? "✓ リピート確定のみ表示中" : "リピート確定のみ表示"}
-      </button>
-
-      <input
-        value={keyword}
-        onChange={(e) => setKeyword(e.target.value)}
-        placeholder="タイトル・メモで検索"
-        className="min-h-[44px] w-full rounded-lg border border-zinc-300 px-4 text-base"
+      <Switch
+        label="リピート確定のみ表示"
+        value={repeatOnly}
+        onChange={setRepeatOnly}
+        labelSpacing="spread"
+        className="min-h-11"
       />
 
-      <div className="flex flex-wrap gap-2">
+      <TextInput
+        label="タイトル・メモで検索"
+        isLabelHidden
+        value={keyword}
+        onChange={setKeyword}
+        placeholder="タイトル・メモで検索"
+        hasClear
+      />
+
+      <ToggleButtonGroup
+        label="カテゴリで絞り込み"
+        value={category}
+        onChange={(value) => setCategory(value as RecipeCategory | null)}
+      >
         {CATEGORIES.map((c) => (
-          <button
-            type="button"
-            key={c}
-            onClick={() => setCategory((prev) => (prev === c ? null : c))}
-            className={`min-h-[44px] rounded-full border px-4 text-sm font-medium ${
-              category === c
-                ? "border-orange-500 bg-orange-500 text-white"
-                : "border-zinc-300 text-zinc-600"
-            }`}
-          >
-            {c}
-          </button>
+          <ToggleButton key={c} value={c} label={c} />
         ))}
-      </div>
+      </ToggleButtonGroup>
 
       {recipesLoading ? (
-        <p className="p-8 text-center text-sm text-zinc-500">読み込み中...</p>
+        <Text type="body" color="secondary" className="p-8 text-center">
+          読み込み中...
+        </Text>
       ) : filtered.length > 0 ? (
-        <ul className="flex flex-col gap-3">
+        <VStack as="ul" gap={3}>
           {filtered.map((recipe) => (
             <li key={recipe.id}>
               <ArchiveRecipeCard
@@ -103,14 +103,16 @@ export default function ArchivePage() {
               />
             </li>
           ))}
-        </ul>
+        </VStack>
       ) : (
-        <p className="p-8 text-center text-sm text-zinc-500">
-          {recipes && recipes.length > 0
-            ? "条件に合うレシピがありません"
-            : "作ったレシピはまだありません"}
-        </p>
+        <EmptyState
+          title={
+            recipes && recipes.length > 0
+              ? "条件に合うレシピがありません"
+              : "作ったレシピはまだありません"
+          }
+        />
       )}
-    </div>
+    </VStack>
   );
 }

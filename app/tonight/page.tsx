@@ -1,6 +1,13 @@
 "use client";
 
-import Link from "next/link";
+import { Button } from "@astryxdesign/core/Button";
+import { Card } from "@astryxdesign/core/Card";
+import { Heading } from "@astryxdesign/core/Heading";
+import { HStack } from "@astryxdesign/core/HStack";
+import { SegmentedControl, SegmentedControlItem } from "@astryxdesign/core/SegmentedControl";
+import { Text } from "@astryxdesign/core/Text";
+import { Token } from "@astryxdesign/core/Token";
+import { VStack } from "@astryxdesign/core/VStack";
 import { useMemo, useState } from "react";
 import { RecipeThumbnail } from "@/components/RecipeThumbnail";
 import { useMyMember } from "@/lib/board";
@@ -54,79 +61,80 @@ export default function TonightPage() {
 
   if (memberLoading) {
     return (
-      <div className="flex flex-1 items-center justify-center p-8 text-sm text-zinc-500">
+      <Text type="body" color="secondary" className="flex flex-1 items-center justify-center p-8">
         読み込み中...
-      </div>
+      </Text>
     );
   }
 
   if (!member) {
     return (
-      <div className="flex flex-1 flex-col items-center justify-center gap-2 p-8 text-center text-sm text-zinc-500">
-        <p>まだボードに参加していません</p>
-      </div>
+      <Text type="body" color="secondary" className="flex flex-1 items-center justify-center p-8 text-center">
+        まだボードに参加していません
+      </Text>
     );
   }
 
   return (
-    <div className="flex flex-1 flex-col gap-4 p-4">
-      <h1 className="text-xl font-semibold">今夜どうする</h1>
+    <VStack gap={4} className="flex-1 p-4">
+      <Heading level={1}>今夜どうする</Heading>
 
-      <button
-        type="button"
-        onClick={() => setSource((s) => (s === "todo" ? "repeat" : "todo"))}
-        className={`min-h-[48px] w-full rounded-xl text-base font-semibold ${
-          source === "repeat"
-            ? "bg-orange-500 text-white"
-            : "border border-zinc-300 text-zinc-600"
-        }`}
+      <SegmentedControl
+        label="提案元"
+        value={source}
+        onChange={(value) => setSource(value as Source)}
+        layout="fill"
       >
-        {source === "repeat"
-          ? "✓ リピート確定から引いています"
-          : "リピート確定から引く"}
-      </button>
+        <SegmentedControlItem value="todo" label="未挑戦から" />
+        <SegmentedControlItem value="repeat" label="リピート確定から" />
+      </SegmentedControl>
 
       {poolLoading ? (
-        <p className="p-8 text-center text-sm text-zinc-500">読み込み中...</p>
+        <Text type="body" color="secondary" className="p-8 text-center">
+          読み込み中...
+        </Text>
       ) : pick ? (
-        <div className="flex flex-col items-center gap-4 rounded-xl border border-zinc-200 bg-white p-6">
-          <RecipeThumbnail photoPath={pick.photo_path} />
-          <div className="text-center">
-            <p className="text-lg font-semibold">{pick.title}</p>
-            {pick.author_handle && (
-              <p className="mt-1 text-sm text-zinc-500">@{pick.author_handle}</p>
-            )}
-            {pick.category && (
-              <span className="mt-2 inline-block rounded-full bg-orange-50 px-2 py-0.5 text-sm text-orange-600">
-                {pick.category}
-              </span>
-            )}
-          </div>
+        <Card>
+          <VStack gap={4} hAlign="center">
+            <RecipeThumbnail photoPath={pick.photo_path} />
+            <VStack gap={1} hAlign="center">
+              <Text type="large" weight="semibold">
+                {pick.title}
+              </Text>
+              {pick.author_handle && (
+                <Text type="supporting" color="secondary">
+                  @{pick.author_handle}
+                </Text>
+              )}
+              {pick.category && <Token label={pick.category} color="orange" />}
+            </VStack>
 
-          <div className="flex w-full gap-3">
-            <Link
-              href={`/recipe/${pick.id}`}
-              className="flex min-h-[44px] flex-1 items-center justify-center rounded-lg border border-zinc-300 text-base font-semibold text-zinc-600"
-            >
-              詳しく見る
-            </Link>
-            <button
-              type="button"
-              onClick={handleReroll}
-              disabled={pool.length <= 1}
-              className="min-h-[44px] flex-1 rounded-lg bg-orange-500 text-base font-semibold text-white disabled:opacity-50"
-            >
-              別のにする
-            </button>
-          </div>
-        </div>
+            <HStack gap={3} className="w-full">
+              <Button
+                label="詳しく見る"
+                variant="secondary"
+                size="lg"
+                href={`/recipe/${pick.id}`}
+                className="min-h-11 flex-1"
+              />
+              <Button
+                label="別のにする"
+                variant="primary"
+                size="lg"
+                isDisabled={pool.length <= 1}
+                onClick={handleReroll}
+                className="min-h-11 flex-1"
+              />
+            </HStack>
+          </VStack>
+        </Card>
       ) : (
-        <p className="p-8 text-center text-sm text-zinc-500">
+        <Text type="body" color="secondary" className="p-8 text-center">
           {source === "todo"
             ? "未挑戦のレシピがありません"
             : "リピート確定のレシピがまだありません"}
-        </p>
+        </Text>
       )}
-    </div>
+    </VStack>
   );
 }

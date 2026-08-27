@@ -1,10 +1,17 @@
 "use client";
 
+import { Button } from "@astryxdesign/core/Button";
+import { Heading } from "@astryxdesign/core/Heading";
+import { HStack } from "@astryxdesign/core/HStack";
+import { Text } from "@astryxdesign/core/Text";
+import { TextInput } from "@astryxdesign/core/TextInput";
+import { useToast } from "@astryxdesign/core/Toast";
+import { VStack } from "@astryxdesign/core/VStack";
 import { useMemo, useState } from "react";
-import { toast } from "sonner";
 import { useBoard, useMyMember } from "@/lib/board";
 
 export default function SettingsPage() {
+  const toast = useToast();
   const { data: member, isLoading: memberLoading } = useMyMember();
   const { data: board, isLoading: boardLoading } = useBoard(member?.board_id);
   const [copied, setCopied] = useState(false);
@@ -19,59 +26,63 @@ export default function SettingsPage() {
     try {
       await navigator.clipboard.writeText(inviteUrl);
       setCopied(true);
-      toast.success("招待URLをコピーしました");
+      toast({ body: "招待URLをコピーしました" });
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      toast.error("コピーに失敗しました。長押しで手動コピーしてください");
+      toast({ type: "error", body: "コピーに失敗しました。長押しで手動コピーしてください" });
     }
   }
 
   if (memberLoading || boardLoading) {
     return (
-      <div className="flex flex-1 items-center justify-center p-8 text-sm text-zinc-500">
+      <Text type="body" color="secondary" className="flex flex-1 items-center justify-center p-8">
         読み込み中...
-      </div>
+      </Text>
     );
   }
 
   if (!member) {
     return (
-      <div className="flex flex-1 flex-col items-center justify-center gap-2 p-8 text-center text-sm text-zinc-500">
-        <p>まだボードに参加していません</p>
-      </div>
+      <Text type="body" color="secondary" className="flex flex-1 items-center justify-center p-8 text-center">
+        まだボードに参加していません
+      </Text>
     );
   }
 
   return (
-    <div className="flex flex-1 flex-col gap-8 p-6">
-      <h1 className="text-xl font-semibold">設定</h1>
+    <VStack gap={8} className="flex-1 p-6">
+      <Heading level={1}>設定</Heading>
 
-      <section className="space-y-1">
-        <h2 className="text-sm font-medium text-zinc-500">表示名</h2>
-        <p className="text-base">{member.display_name}</p>
-      </section>
+      <VStack gap={1}>
+        <Text type="label" color="secondary">
+          表示名
+        </Text>
+        <Text type="body">{member.display_name}</Text>
+      </VStack>
 
-      <section className="space-y-2">
-        <h2 className="text-sm font-medium text-zinc-500">招待URL</h2>
-        <p className="text-sm text-zinc-400">
+      <VStack gap={2}>
+        <Text type="label" color="secondary">
+          招待URL
+        </Text>
+        <Text type="supporting" color="secondary">
           このURLをパートナーに送るとボードに参加できます。iOSでアプリのデータが消えてログインできなくなった場合も、このURLからもう一度参加できます。
-        </p>
-        <div className="flex items-center gap-2">
-          <input
-            readOnly
+        </Text>
+        <HStack gap={2} align="center">
+          <TextInput
+            label="招待URL"
+            isLabelHidden
+            isReadOnly
             value={inviteUrl ?? ""}
-            onFocus={(e) => e.target.select()}
-            className="min-w-0 flex-1 truncate rounded-lg border border-zinc-300 px-3 py-3 text-sm"
+            className="min-w-0 flex-1"
           />
-          <button
-            type="button"
+          <Button
+            label={copied ? "コピー済み" : "コピー"}
+            variant="primary"
+            className="min-h-11 shrink-0"
             onClick={handleCopy}
-            className="min-h-[44px] shrink-0 rounded-lg bg-orange-500 px-4 text-sm font-semibold text-white"
-          >
-            {copied ? "コピー済み" : "コピー"}
-          </button>
-        </div>
-      </section>
-    </div>
+          />
+        </HStack>
+      </VStack>
+    </VStack>
   );
 }
