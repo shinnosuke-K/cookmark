@@ -83,6 +83,7 @@ export interface Database {
           added_by: string;
           cooked_at: string | null;
           created_at: string;
+          cook_count: number;
         };
         Insert: {
           id?: string;
@@ -99,6 +100,7 @@ export interface Database {
           added_by: string;
           cooked_at?: string | null;
           created_at?: string;
+          cook_count?: number;
         };
         Update: {
           id?: string;
@@ -115,6 +117,7 @@ export interface Database {
           added_by?: string;
           cooked_at?: string | null;
           created_at?: string;
+          cook_count?: number;
         };
         Relationships: [
           {
