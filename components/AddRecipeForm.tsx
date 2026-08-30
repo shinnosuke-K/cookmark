@@ -19,6 +19,16 @@ const OG_CAPTION_MAX_LENGTH = 2000;
 
 const CATEGORIES: RecipeCategory[] = ["主菜", "副菜", "汁物", "麺・丼", "おやつ"];
 
+/**
+ * Unicodeのコードポイント単位で文字列を切り詰める。`string.slice()` はUTF-16
+ * コード単位で切るため、絵文字などのサロゲートペアの境界で分断してしまうことがあり、
+ * その半端な文字列はPostgRESTにJSONとして拒否され、レシピ登録ごと失敗してしまう。
+ */
+function truncateToCodePoints(text: string, maxLength: number): string {
+  const chars = Array.from(text);
+  return chars.length > maxLength ? chars.slice(0, maxLength).join("") : text;
+}
+
 export interface AddRecipeFormInitial {
   url: string;
   title: string;
@@ -95,12 +105,11 @@ export function AddRecipeForm({
         recipeId: recipe.id,
         file,
       });
+      // photo_pathだけを更新する。title/memo/categoryを渡さないのは、アップロード
+      // 待ちの間にユーザーが詳細画面で編集していた場合、その内容を巻き戻さないため。
       updateRecipe.mutate({
         id: recipe.id,
         boardId: recipe.board_id,
-        title: recipe.title,
-        memo: recipe.memo,
-        category: recipe.category,
         photoPath,
       });
     } catch (err) {
@@ -126,7 +135,7 @@ export function AddRecipeForm({
         category,
         instagramUrl: parsed?.cleanUrl ?? null,
         postShortcode: parsed?.shortcode ?? null,
-        memo: ogData?.caption ? ogData.caption.slice(0, OG_CAPTION_MAX_LENGTH) : null,
+        memo: ogData?.caption ? truncateToCodePoints(ogData.caption, OG_CAPTION_MAX_LENGTH) : null,
       },
       {
         onSuccess: (recipe) => {

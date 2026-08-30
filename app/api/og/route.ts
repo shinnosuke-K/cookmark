@@ -26,19 +26,21 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  let html: string;
+  let parsed: ReturnType<typeof parseEmbedHtml>;
   try {
     const res = await fetch(`https://www.instagram.com/p/${shortcode}/embed/captioned/`, {
       headers: { "User-Agent": INSTAGRAM_EMBED_USER_AGENT },
       signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
     });
     if (!res.ok) return unavailable();
-    html = await res.text();
+    const html = await res.text();
+    // parseEmbedHtml自体は例外を投げない設計だが、想定外の入力(異常な数値実体参照等)に
+    // 対しても確実に404へ倒すため、念のためtry内で呼ぶ。
+    parsed = parseEmbedHtml(html);
   } catch {
     return unavailable();
   }
 
-  const parsed = parseEmbedHtml(html);
   if (!parsed) return unavailable();
 
   return NextResponse.json(parsed, { headers: { "Cache-Control": "no-store" } });

@@ -196,14 +196,17 @@ export function useMarkRecipeCooked() {
 export interface UpdateRecipeInput {
   id: string;
   boardId: string;
-  title: string;
-  memo: string | null;
-  category: RecipeCategory | null;
+  /** 指定したフィールドのみ更新する。undefinedのフィールドは既存値を保持する
+   *  (例: 自動取得した写真だけをphoto_pathに反映し、title/memo/categoryへの
+   *  他編集を上書きしないようにする用途)。 */
+  title?: string;
+  memo?: string | null;
+  category?: RecipeCategory | null;
   /** 写真を差し替えた場合のみ指定する。undefinedなら既存の写真を保持する。 */
   photoPath?: string;
 }
 
-/** 詳細画面での編集(タイトル・メモ・カテゴリ・写真)を保存する。 */
+/** 詳細画面での編集(タイトル・メモ・カテゴリ・写真)、または部分更新を保存する。 */
 export async function updateRecipe({
   id,
   title,
@@ -211,11 +214,10 @@ export async function updateRecipe({
   category,
   photoPath,
 }: UpdateRecipeInput): Promise<Recipe> {
-  const update: Database["public"]["Tables"]["recipes"]["Update"] = {
-    title,
-    memo,
-    category,
-  };
+  const update: Database["public"]["Tables"]["recipes"]["Update"] = {};
+  if (title !== undefined) update.title = title;
+  if (memo !== undefined) update.memo = memo;
+  if (category !== undefined) update.category = category;
   if (photoPath !== undefined) update.photo_path = photoPath;
 
   const { data, error } = await supabase

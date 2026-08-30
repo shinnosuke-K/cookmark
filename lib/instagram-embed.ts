@@ -17,19 +17,40 @@ export interface ParsedEmbed {
   imageUrl: string;
 }
 
-/** HTML実体参照(名前参照・数値参照)をデコードする。 */
+function isValidCodePoint(codePoint: number): boolean {
+  return Number.isInteger(codePoint) && codePoint >= 0 && codePoint <= 0x10ffff;
+}
+
+const NAMED_ENTITIES: Record<string, string> = {
+  amp: "&",
+  lt: "<",
+  gt: ">",
+  quot: '"',
+  apos: "'",
+  nbsp: " ",
+};
+
+/**
+ * HTML実体参照(名前参照・数値参照)を一度のパスでデコードする。範囲外の数値参照
+ * (例: `&#x110000;`)は `String.fromCodePoint` が例外を投げるため、その場合は元の
+ * テキストのまま残す(呼び出し側を落とさない)。一度のパスで処理することで
+ * `&#38;lt;` のような二重エンコードを誤って `<` へ展開してしまう(二重デコード)事故も防ぐ。
+ */
 function decodeHtmlEntities(text: string): string {
-  return text
-    .replace(/&#x([0-9a-fA-F]+);/g, (_, hex: string) =>
-      String.fromCodePoint(parseInt(hex, 16)),
-    )
-    .replace(/&#(\d+);/g, (_, dec: string) => String.fromCodePoint(parseInt(dec, 10)))
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;|&apos;/g, "'")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&");
+  return text.replace(
+    /&#x([0-9a-fA-F]+);|&#(\d+);|&(amp|lt|gt|quot|apos|nbsp);/g,
+    (match: string, hex?: string, dec?: string, named?: string) => {
+      if (hex !== undefined) {
+        const codePoint = parseInt(hex, 16);
+        return isValidCodePoint(codePoint) ? String.fromCodePoint(codePoint) : match;
+      }
+      if (dec !== undefined) {
+        const codePoint = parseInt(dec, 10);
+        return isValidCodePoint(codePoint) ? String.fromCodePoint(codePoint) : match;
+      }
+      return named !== undefined ? NAMED_ENTITIES[named] : match;
+    },
+  );
 }
 
 /** `<img class="…EmbeddedMediaImage…" … src="…">` からsrcを取り出す(属性の順序は問わない)。 */
@@ -76,14 +97,24 @@ function trimEmptyEdges(lines: string[]): string[] {
   return lines.slice(start, end);
 }
 
+/**
+ * Unicodeのコードポイント単位で文字列を切り詰める。`string.slice()` はUTF-16
+ * コード単位で切るためサロゲートペア(絵文字等)の境界で分断してしまうことがあり、
+ * その半端な文字列はPostgRESTにJSONとして拒否される。呼び出し側(キャプションの
+ * memo保存等)はこちらを使うこと。
+ */
+export function truncateToCodePoints(text: string, maxLength: number): string {
+  const chars = Array.from(text);
+  return chars.length > maxLength ? chars.slice(0, maxLength).join("") : text;
+}
+
 function buildTitle(caption: string): string {
   const firstLine = caption.split("\n").find((line) => line.trim() !== "") ?? "";
   let title = firstLine.trim();
   if (title.length >= 2 && title.startsWith("【") && title.endsWith("】")) {
     title = title.slice(1, -1).trim();
   }
-  const chars = Array.from(title);
-  return chars.length > MAX_TITLE_LENGTH ? chars.slice(0, MAX_TITLE_LENGTH).join("") : title;
+  return truncateToCodePoints(title, MAX_TITLE_LENGTH);
 }
 
 /**
