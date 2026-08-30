@@ -30,8 +30,8 @@ export function ArchiveRecipeCard({ recipe, adderName }: ArchiveRecipeCardProps)
           {recipe.title}
         </Link>
         {(adderText || recipe.category) && (
-          <div className="flex items-center gap-1.5">
-            {adderText && <span className="ck-meta truncate">{adderText}</span>}
+          <div className="flex min-w-0 items-center gap-1.5">
+            {adderText && <span className="ck-meta min-w-0 truncate">{adderText}</span>}
             {recipe.category && <CategoryTag category={recipe.category} />}
           </div>
         )}
