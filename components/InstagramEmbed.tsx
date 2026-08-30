@@ -1,10 +1,10 @@
 "use client";
 
-import { Card } from "@astryxdesign/core/Card";
 import { useEffect, useRef, useState } from "react";
 
 interface InstagramEmbedProps {
   shortcode: string;
+  className?: string;
 }
 
 const LOAD_TIMEOUT_MS = 8000;
@@ -17,10 +17,10 @@ const LOAD_TIMEOUT_MS = 8000;
  *   クロスオリジンのため、404等でもiframe自体のonErrorはほぼ発火しない。そこで
  *   「iframeのonLoadが一定時間(LOAD_TIMEOUT_MS)経っても発火しない」ことを
  *   失敗とみなすタイムアウト方式をベストエフォートの判定として採用している。
- *   失敗時はこのコンポーネントが何も描画しなくなるだけで、呼び出し側(詳細画面)は
- *   もともと写真・タイトルを別途表示しているため、フォールバックとして機能する。
+ *   失敗時は何も描画しなくなり、呼び出し側(詳細画面)が下に敷いている
+ *   「Instagram投稿」のプレースホルダがそのまま見える。
  */
-export function InstagramEmbed({ shortcode }: InstagramEmbedProps) {
+export function InstagramEmbed({ shortcode, className = "" }: InstagramEmbedProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -51,17 +51,17 @@ export function InstagramEmbed({ shortcode }: InstagramEmbedProps) {
   if (failed) return null;
 
   return (
-    <Card ref={containerRef} variant="muted" padding={0} className="w-full overflow-hidden">
+    <div ref={containerRef} className={`overflow-hidden bg-surface ${className}`}>
       {visible && (
         <iframe
           src={`https://www.instagram.com/p/${shortcode}/embed/captioned/`}
           onLoad={() => setLoaded(true)}
           onError={() => setFailed(true)}
-          className="h-[640px] w-full"
-          style={{ border: "none" }}
+          className="h-full w-full border-0"
+          scrolling="no"
           title="Instagram投稿"
         />
       )}
-    </Card>
+    </div>
   );
 }

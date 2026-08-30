@@ -1,21 +1,27 @@
 "use client";
 
-import { Button } from "@astryxdesign/core/Button";
-import { Heading } from "@astryxdesign/core/Heading";
-import { HStack } from "@astryxdesign/core/HStack";
-import { StackItem } from "@astryxdesign/core/Stack";
-import { Text } from "@astryxdesign/core/Text";
-import { TextInput } from "@astryxdesign/core/TextInput";
-import { useToast } from "@astryxdesign/core/Toast";
-import { VStack } from "@astryxdesign/core/VStack";
-import { useMemo, useState } from "react";
+import { Check } from "@phosphor-icons/react/dist/csr/Check";
+import { Copy } from "@phosphor-icons/react/dist/csr/Copy";
+import { Link as LinkIcon } from "@phosphor-icons/react/dist/csr/Link";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useToast } from "@/components/Toast";
 import { useBoard, useMyMember } from "@/lib/board";
+
+const COPIED_RESET_MS = 2400;
 
 export default function SettingsPage() {
   const toast = useToast();
   const { data: member, isLoading: memberLoading } = useMyMember();
   const { data: board, isLoading: boardLoading } = useBoard(member?.board_id);
   const [copied, setCopied] = useState(false);
+  const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(
+    () => () => {
+      if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
+    },
+    [],
+  );
 
   const inviteUrl = useMemo(() => {
     if (!board || typeof window === "undefined") return null;
@@ -27,65 +33,75 @@ export default function SettingsPage() {
     try {
       await navigator.clipboard.writeText(inviteUrl);
       setCopied(true);
-      toast({ body: "招待URLをコピーしました" });
-      setTimeout(() => setCopied(false), 2000);
+      toast("招待URLをコピーしました");
+      if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
+      resetTimerRef.current = setTimeout(() => setCopied(false), COPIED_RESET_MS);
     } catch {
-      toast({ type: "error", body: "コピーに失敗しました。長押しで手動コピーしてください" });
+      toast("コピーに失敗しました。長押しで手動コピーしてください");
     }
   }
 
   if (memberLoading || boardLoading) {
     return (
-      <Text type="body" color="secondary" className="flex flex-1 items-center justify-center p-8">
+      <div className="ck-screen ck-meta items-center justify-center">
         読み込み中...
-      </Text>
+      </div>
     );
   }
 
   if (!member) {
     return (
-      <Text type="body" color="secondary" className="flex flex-1 items-center justify-center p-8 text-center">
+      <div className="ck-screen ck-meta items-center justify-center text-center">
         まだボードに参加していません
-      </Text>
+      </div>
     );
   }
 
   return (
-    <VStack gap={8} className="flex-1 p-6">
-      <Heading level={1}>設定</Heading>
+    <div className="ck-screen">
+      <h1 className="ck-title mb-[26px]">設定</h1>
 
-      <VStack gap={1}>
-        <Text type="label" color="secondary">
+      <div className="mb-[30px]">
+        <p className="mb-1 text-[14px] text-[color-mix(in_srgb,var(--color-text)_70%,transparent)]">
           表示名
-        </Text>
-        <Text type="body">{member.display_name}</Text>
-      </VStack>
+        </p>
+        <p className="text-[20px] font-semibold">{member.display_name}</p>
+      </div>
 
-      <VStack gap={2}>
-        <Text type="label" color="secondary">
+      {/*
+        招待URLはiOSでサイトデータが消えて匿名セッションを失ったときの
+        唯一の復帰導線なので、設定画面に常時出しておく。
+      */}
+      <div>
+        <h2 className="mb-2 flex items-center gap-1.5 text-[18px] font-semibold">
+          <LinkIcon size={18} weight="duotone" color="var(--color-accent)" />
           招待URL
-        </Text>
-        <Text type="body" color="secondary">
+        </h2>
+        <p className="mb-3.5 text-[14px] leading-[1.6] text-[rgba(32,30,29,.65)]">
           このURLをパートナーに送るとボードに参加できます。iOSでアプリのデータが消えてログインできなくなった場合も、このURLからもう一度参加できます。
-        </Text>
-        <HStack gap={2} align="center">
-          <StackItem size="fill">
-            <TextInput
-              label="招待URL"
-              isLabelHidden
-              isReadOnly
-              value={inviteUrl ?? ""}
-              width="100%"
-            />
-          </StackItem>
-          <Button
-            label={copied ? "コピー済み" : "コピー"}
-            variant="primary"
-            className="min-h-11 shrink-0"
-            onClick={handleCopy}
+        </p>
+        <div className="flex items-stretch gap-2.5">
+          <input
+            className="ck-input min-h-12 truncate font-mono text-[14px] text-[rgba(32,30,29,.7)]"
+            value={inviteUrl ?? ""}
+            readOnly
+            aria-label="招待URL"
+            onFocus={(e) => e.currentTarget.select()}
           />
-        </HStack>
-      </VStack>
-    </VStack>
+          <button
+            type="button"
+            onClick={handleCopy}
+            className="ck-btn ck-btn-primary ck-pill min-h-12 flex-none px-5 text-[15px]"
+          >
+            {copied ? (
+              <Check size={18} weight="duotone" />
+            ) : (
+              <Copy size={18} weight="duotone" />
+            )}
+            {copied ? "コピー済み" : "コピー"}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }

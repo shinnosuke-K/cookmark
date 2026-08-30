@@ -1,19 +1,12 @@
 "use client";
 
-import { EmptyState } from "@astryxdesign/core/EmptyState";
-import { Heading } from "@astryxdesign/core/Heading";
-import { Switch } from "@astryxdesign/core/Switch";
-import { Text } from "@astryxdesign/core/Text";
-import { TextInput } from "@astryxdesign/core/TextInput";
-import { ToggleButton, ToggleButtonGroup } from "@astryxdesign/core/ToggleButton";
-import { VStack } from "@astryxdesign/core/VStack";
+import { MagnifyingGlass } from "@phosphor-icons/react/dist/csr/MagnifyingGlass";
 import { useMemo, useState } from "react";
 import { ArchiveRecipeCard } from "@/components/ArchiveRecipeCard";
+import { CategoryChips } from "@/components/CategoryChips";
 import { useMyMember } from "@/lib/board";
 import type { RecipeCategory } from "@/lib/database.types";
 import { useArchiveRecipes, useBoardMembers } from "@/lib/recipes";
-
-const CATEGORIES: RecipeCategory[] = ["主菜", "副菜", "汁物", "麺・丼", "おやつ"];
 
 export default function ArchivePage() {
   const { data: member, isLoading: memberLoading } = useMyMember();
@@ -44,56 +37,89 @@ export default function ArchivePage() {
 
   if (memberLoading) {
     return (
-      <Text type="body" color="secondary" className="flex flex-1 items-center justify-center p-8">
+      <div className="ck-screen ck-meta items-center justify-center">
         読み込み中...
-      </Text>
+      </div>
     );
   }
 
   if (!member) {
     return (
-      <Text type="body" color="secondary" className="flex flex-1 items-center justify-center p-8 text-center">
+      <div className="ck-screen ck-meta items-center justify-center text-center">
         まだボードに参加していません
-      </Text>
+      </div>
     );
   }
 
+  const listPadding = { paddingBottom: "calc(var(--tabbar-h) + 44px)" };
+
   return (
-    <VStack gap={4} className="flex-1 p-4">
-      <Heading level={1}>アーカイブ</Heading>
+    <div className="ck-screen">
+      <h1 className="ck-title mb-3.5">アーカイブ</h1>
 
-      <Switch
-        label="リピート確定のみ表示"
-        value={repeatOnly}
-        onChange={setRepeatOnly}
-        className="min-h-11"
-      />
-
-      <TextInput
-        label="タイトル・メモで検索"
-        isLabelHidden
-        value={keyword}
-        onChange={setKeyword}
-        placeholder="タイトル・メモで検索"
-        hasClear
-      />
-
-      <ToggleButtonGroup
-        label="カテゴリで絞り込み"
-        value={category}
-        onChange={(value) => setCategory(value as RecipeCategory | null)}
+      {/* リピート確定のみ表示。ONでマゼンタ100の地 + マゼンタ600のトラックになる */}
+      <button
+        type="button"
+        role="switch"
+        aria-checked={repeatOnly}
+        onClick={() => setRepeatOnly((v) => !v)}
+        className="flex min-h-12 items-center justify-between rounded-md px-3.5 py-1.5"
+        style={{
+          background: repeatOnly
+            ? "var(--color-accent-2-100)"
+            : "var(--color-neutral-200)",
+        }}
       >
-        {CATEGORIES.map((c) => (
-          <ToggleButton key={c} value={c} label={c} />
-        ))}
-      </ToggleButtonGroup>
+        <span
+          className="text-[15px] font-semibold"
+          style={{ color: "var(--color-accent-2-800)" }}
+        >
+          リピート確定のみ表示
+        </span>
+        <span
+          className="ck-pill relative h-[30px] w-[50px] flex-none transition-colors duration-200"
+          style={{
+            background: repeatOnly
+              ? "var(--color-accent-2-600)"
+              : "var(--color-neutral-400)",
+          }}
+        >
+          <span
+            className="absolute top-[3px] size-6 rounded-full bg-white shadow-sm transition-[left] duration-200"
+            style={{ left: repeatOnly ? "23px" : "3px" }}
+          />
+        </span>
+      </button>
+
+      <div className="relative mt-3">
+        <MagnifyingGlass
+          size={18}
+          weight="duotone"
+          color="#7d7979"
+          className="absolute top-1/2 left-2.5 -translate-y-1/2"
+        />
+        <input
+          className="ck-input min-h-11 pl-[34px]"
+          value={keyword}
+          onChange={(e) => setKeyword(e.target.value)}
+          placeholder="タイトル・メモで検索"
+          aria-label="タイトル・メモで検索"
+          type="search"
+        />
+      </div>
+
+      <div className="mt-3">
+        <CategoryChips
+          label="カテゴリで絞り込み"
+          value={category}
+          onChange={setCategory}
+        />
+      </div>
 
       {recipesLoading ? (
-        <Text type="body" color="secondary" className="p-8 text-center">
-          読み込み中...
-        </Text>
+        <p className="ck-meta py-8 text-center">読み込み中...</p>
       ) : filtered.length > 0 ? (
-        <VStack as="ul" gap={3}>
+        <ul className="mt-[26px] flex flex-col gap-6" style={listPadding}>
           {filtered.map((recipe) => (
             <li key={recipe.id}>
               <ArchiveRecipeCard
@@ -102,16 +128,17 @@ export default function ArchivePage() {
               />
             </li>
           ))}
-        </VStack>
+        </ul>
       ) : (
-        <EmptyState
-          title={
-            recipes && recipes.length > 0
-              ? "条件に合うレシピがありません"
-              : "作ったレシピはまだありません"
-          }
-        />
+        <p
+          className="ck-meta flex flex-1 items-center justify-center text-[15px]"
+          style={listPadding}
+        >
+          {recipes && recipes.length > 0
+            ? "条件に合うレシピがありません"
+            : "作ったレシピはまだありません"}
+        </p>
       )}
-    </VStack>
+    </div>
   );
 }
