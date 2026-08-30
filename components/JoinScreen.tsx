@@ -35,7 +35,7 @@ export function JoinScreen({ inviteToken }: JoinScreenProps) {
       {
         onSuccess: () => {
           toast("ボードに参加しました!");
-          router.push("/");
+          router.replace("/");
         },
         onError: () =>
           toast("参加に失敗しました。招待URLをもう一度確認してください"),
