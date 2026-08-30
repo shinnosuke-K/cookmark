@@ -6,17 +6,15 @@ import { InstagramLogo } from "@phosphor-icons/react/dist/csr/InstagramLogo";
 import { Trash } from "@phosphor-icons/react/dist/csr/Trash";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { CategoryChips } from "@/components/CategoryChips";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { InstagramEmbed } from "@/components/InstagramEmbed";
-import { RecipeThumbnail } from "@/components/RecipeThumbnail";
 import { StatusBadge } from "@/components/VerdictBadge";
 import { useToast } from "@/components/Toast";
 import { useBoardMembers } from "@/lib/recipes";
 import { useMyMember } from "@/lib/board";
 import type { RecipeCategory } from "@/lib/database.types";
-import { uploadRecipePhoto } from "@/lib/photos";
 import { useDeleteRecipe, useRecipe, useUpdateRecipe } from "@/lib/recipes";
 
 export default function RecipeDetailPage() {
@@ -32,11 +30,7 @@ export default function RecipeDetailPage() {
   const [title, setTitle] = useState("");
   const [memo, setMemo] = useState("");
   const [category, setCategory] = useState<RecipeCategory | null>(null);
-  const [photoFile, setPhotoFile] = useState<File | null>(null);
-  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
-  const [uploading, setUploading] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // recipeが読み込まれた/切り替わった、またはフォーム未編集のまま新しいデータが
   // 届いたタイミングで編集フォームの初期値をセットする。
@@ -66,40 +60,15 @@ export default function RecipeDetailPage() {
     setTitle(recipe.title);
     setMemo(recipe.memo ?? "");
     setCategory(recipe.category);
-    setPhotoFile(null);
-    setPhotoPreview(null);
     setDirty(false);
   }
 
-  function handlePhotoChange(file: File | null) {
-    setPhotoFile(file);
-    setPhotoPreview(file ? URL.createObjectURL(file) : null);
-    setDirty(true);
-  }
-
-  async function handleSave() {
+  function handleSave() {
     if (!recipe) return;
     const trimmedTitle = title.trim();
     if (!trimmedTitle) {
       toast("タイトルを入力してください");
       return;
-    }
-
-    let photoPath: string | undefined;
-    if (photoFile) {
-      setUploading(true);
-      try {
-        photoPath = await uploadRecipePhoto({
-          boardId: recipe.board_id,
-          recipeId: recipe.id,
-          file: photoFile,
-        });
-      } catch {
-        toast("写真のアップロードに失敗しました");
-        setUploading(false);
-        return;
-      }
-      setUploading(false);
     }
 
     updateRecipe.mutate(
@@ -109,7 +78,6 @@ export default function RecipeDetailPage() {
         title: trimmedTitle,
         memo: memo.trim() || null,
         category,
-        photoPath,
       },
       {
         onSuccess: () => {
@@ -166,7 +134,7 @@ export default function RecipeDetailPage() {
     .filter(Boolean)
     .join(" ・ ");
 
-  const busy = updateRecipe.isPending || uploading;
+  const busy = updateRecipe.isPending;
 
   return (
     <div className="ck-screen">
@@ -187,38 +155,8 @@ export default function RecipeDetailPage() {
         <StatusBadge status={recipe.status} verdict={recipe.verdict} />
       </div>
 
-      <div className="mt-4 flex gap-3">
-        {/* 写真。タップでカメラロールから差し替える(保存するで確定) */}
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          className="hidden"
-          onChange={(e) => handlePhotoChange(e.target.files?.[0] ?? null)}
-        />
-        <button
-          type="button"
-          aria-label="写真を変更"
-          onClick={() => fileInputRef.current?.click()}
-          className="h-[130px] flex-1 overflow-hidden rounded-md"
-        >
-          {photoPreview ? (
-            // 選択直後のローカルプレビュー(object URL)なのでnext/imageには載せない
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={photoPreview}
-              alt=""
-              className="h-full w-full object-cover"
-            />
-          ) : (
-            <RecipeThumbnail
-              photoPath={recipe.photo_path}
-              fill
-              className="h-full w-full"
-            />
-          )}
-        </button>
-
+      {/* 写真はリストのサムネイル専用。詳細画面ではembedのみ表示する */}
+      <div className="mt-4">
         {/* Instagram embed。読み込めなければ下地のプレースホルダがそのまま見える */}
         <div className="relative flex h-[130px] flex-1 flex-col items-center justify-center gap-1.5 overflow-hidden rounded-md bg-surface text-[#7d7979]">
           <InstagramLogo size={28} weight="duotone" />
