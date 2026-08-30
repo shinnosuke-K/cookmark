@@ -107,6 +107,8 @@ export interface AddRecipeInput {
   category: RecipeCategory | null;
   instagramUrl: string | null;
   postShortcode: string | null;
+  /** Instagram自動取得(ベストエフォート)のキャプションを添えて登録する場合のみ指定する。 */
+  memo?: string | null;
 }
 
 export async function addRecipe(input: AddRecipeInput): Promise<Recipe> {
@@ -120,6 +122,7 @@ export async function addRecipe(input: AddRecipeInput): Promise<Recipe> {
       category: input.category,
       instagram_url: input.instagramUrl,
       post_shortcode: input.postShortcode,
+      memo: input.memo ?? null,
       status: "todo",
     })
     .select()

@@ -9,10 +9,13 @@ import { TextInput } from "@astryxdesign/core/TextInput";
 import { useToast } from "@astryxdesign/core/Toast";
 import { ToggleButton, ToggleButtonGroup } from "@astryxdesign/core/ToggleButton";
 import { VStack } from "@astryxdesign/core/VStack";
-import { useState } from "react";
-import { parseInstagramUrl } from "@/lib/instagram";
-import { useAddRecipe } from "@/lib/recipes";
+import { useEffect, useRef, useState } from "react";
+import { fetchOgData, parseInstagramUrl, type OgData } from "@/lib/instagram";
+import { uploadRecipePhoto } from "@/lib/photos";
+import { useAddRecipe, useUpdateRecipe, type Recipe } from "@/lib/recipes";
 import type { RecipeCategory } from "@/lib/database.types";
+
+const OG_CAPTION_MAX_LENGTH = 2000;
 
 const CATEGORIES: RecipeCategory[] = ["主菜", "副菜", "汁物", "麺・丼", "おやつ"];
 
@@ -51,6 +54,59 @@ export function AddRecipeForm({
     initial.category,
   );
   const addRecipe = useAddRecipe();
+  const updateRecipe = useUpdateRecipe();
+
+  // Instagram自動取得(ベストエフォート)。フォームが開いた時点のURLにshortcodeが
+  // 含まれていれば、フォームをブロックせずバックグラウンドで取得する。結果は
+  // タイトル・投稿者が未入力のときだけ流し込み、キャプション・画像URLは追加確定時の
+  // 後処理(handleSubmit)で使うためrefに保持しておく。
+  const ogDataRef = useRef<OgData | null>(null);
+
+  useEffect(() => {
+    const parsed = parseInstagramUrl(initial.url);
+    if (!parsed) return;
+
+    let cancelled = false;
+    fetchOgData(parsed.shortcode).then((data) => {
+      if (cancelled || !data) return;
+      ogDataRef.current = data;
+      setTitle((prev) => (prev.trim() === "" ? data.title : prev));
+      const handle = data.authorHandle;
+      if (handle) {
+        setAuthorHandle((prev) => (prev.trim() === "" ? handle : prev));
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [initial.url]);
+
+  // 追加確定後、自動取得した画像があればダウンロード→圧縮アップロード→photo_path更新まで
+  // バックグラウンドで行う。どこで失敗してもレシピ自体は正常に登録済みなので握りつぶす。
+  async function attachOgPhoto(recipe: Recipe, imageUrl: string) {
+    try {
+      const res = await fetch(`/api/og/image?url=${encodeURIComponent(imageUrl)}`);
+      if (!res.ok) return;
+      const blob = await res.blob();
+      const file = new File([blob], "instagram.jpg", { type: blob.type || "image/jpeg" });
+      const photoPath = await uploadRecipePhoto({
+        boardId: recipe.board_id,
+        recipeId: recipe.id,
+        file,
+      });
+      updateRecipe.mutate({
+        id: recipe.id,
+        boardId: recipe.board_id,
+        title: recipe.title,
+        memo: recipe.memo,
+        category: recipe.category,
+        photoPath,
+      });
+    } catch (err) {
+      console.warn("Instagramの画像取得に失敗しました", err);
+    }
+  }
 
   function handleSubmit() {
     const trimmedTitle = title.trim();
@@ -60,6 +116,7 @@ export function AddRecipeForm({
     }
 
     const parsed = parseInstagramUrl(url);
+    const ogData = ogDataRef.current;
     addRecipe.mutate(
       {
         boardId,
@@ -69,11 +126,15 @@ export function AddRecipeForm({
         category,
         instagramUrl: parsed?.cleanUrl ?? null,
         postShortcode: parsed?.shortcode ?? null,
+        memo: ogData?.caption ? ogData.caption.slice(0, OG_CAPTION_MAX_LENGTH) : null,
       },
       {
-        onSuccess: () => {
+        onSuccess: (recipe) => {
           toast({ body: "レシピを追加しました" });
           onClose();
+          if (ogData?.imageUrl) {
+            void attachOgPhoto(recipe, ogData.imageUrl);
+          }
         },
         onError: () => {
           toast({ type: "error", body: "追加に失敗しました。もう一度お試しください" });
