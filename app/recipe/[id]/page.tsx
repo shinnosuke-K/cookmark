@@ -155,10 +155,14 @@ export default function RecipeDetailPage() {
         <StatusBadge status={recipe.status} verdict={recipe.verdict} />
       </div>
 
-      {/* 写真はリストのサムネイル専用。詳細画面ではembedのみ表示する */}
+      {/* 写真はリストのサムネイル専用。詳細画面ではembedのみ表示する。
+          投稿がある場合は縦に十分な高さを取り、iframe内で投稿全体をスクロールできる */}
       <div className="mt-4">
-        {/* Instagram embed。読み込めなければ下地のプレースホルダがそのまま見える */}
-        <div className="relative flex h-[130px] flex-1 flex-col items-center justify-center gap-1.5 overflow-hidden rounded-md bg-surface text-[#7d7979]">
+        <div
+          className={`relative flex flex-col items-center justify-center gap-1.5 overflow-hidden rounded-md bg-surface text-[#7d7979] ${
+            recipe.post_shortcode ? "h-[60vh] max-h-[600px]" : "h-[130px]"
+          }`}
+        >
           <InstagramLogo size={28} weight="duotone" />
           <span className="font-mono text-[14px]">Instagram投稿</span>
           {recipe.post_shortcode && (

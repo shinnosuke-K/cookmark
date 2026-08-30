@@ -58,7 +58,6 @@ export function InstagramEmbed({ shortcode, className = "" }: InstagramEmbedProp
           onLoad={() => setLoaded(true)}
           onError={() => setFailed(true)}
           className="h-full w-full border-0"
-          scrolling="no"
           title="Instagram投稿"
         />
       )}
