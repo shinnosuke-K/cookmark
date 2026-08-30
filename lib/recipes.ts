@@ -167,6 +167,7 @@ export async function markRecipeCooked({
     status: "cooked",
     verdict,
     cooked_at: new Date().toISOString(),
+    cook_count: 1,
   };
   if (memo !== undefined) update.memo = memo;
   if (photoPath !== undefined) update.photo_path = photoPath;
@@ -175,7 +176,21 @@ export async function markRecipeCooked({
   if (error) throw error;
 }
 
-export function useMarkRecipeCooked() {
+export interface UseMarkRecipeCookedOptions {
+  /**
+   * 成功時の追加処理(トースト表示・画面遷移など)。
+   * CookedSheetは選択と同時に即クローズする設計のため、ネットワーク往復が終わる前に
+   * 呼び出し元コンポーネントがアンマウントされる。`mutate(vars, { onSuccess })` に
+   * 直接渡したコールバックはTanStack Queryの仕様上、購読者(mounted観測者)が
+   * いなくなると発火しなくなるため、ここ(フック生成時のオプション)に登録する
+   * 必要がある。フック生成時のonSuccessはMutation側に保持され、アンマウント後も
+   * 確実に呼ばれる。
+   */
+  onSuccess?: (variables: MarkRecipeCookedInput) => void;
+  onError?: () => void;
+}
+
+export function useMarkRecipeCooked(options?: UseMarkRecipeCookedOptions) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: markRecipeCooked,
@@ -189,6 +204,10 @@ export function useMarkRecipeCooked() {
       queryClient.invalidateQueries({
         queryKey: recipeQueryKey(variables.id),
       });
+      options?.onSuccess?.(variables);
+    },
+    onError: () => {
+      options?.onError?.();
     },
   });
 }
@@ -204,21 +223,25 @@ export interface UpdateRecipeInput {
   category?: RecipeCategory | null;
   /** 写真を差し替えた場合のみ指定する。undefinedなら既存の写真を保持する。 */
   photoPath?: string;
+  /** 作った後の評価の編集(cooked限定)。nullで未評価に戻す。undefinedなら変更しない。 */
+  verdict?: RecipeVerdict | null;
 }
 
-/** 詳細画面での編集(タイトル・メモ・カテゴリ・写真)、または部分更新を保存する。 */
+/** 詳細画面での編集(タイトル・メモ・カテゴリ・評価・写真)、または部分更新を保存する。 */
 export async function updateRecipe({
   id,
   title,
   memo,
   category,
   photoPath,
+  verdict,
 }: UpdateRecipeInput): Promise<Recipe> {
   const update: Database["public"]["Tables"]["recipes"]["Update"] = {};
   if (title !== undefined) update.title = title;
   if (memo !== undefined) update.memo = memo;
   if (category !== undefined) update.category = category;
   if (photoPath !== undefined) update.photo_path = photoPath;
+  if (verdict !== undefined) update.verdict = verdict;
 
   const { data, error } = await supabase
     .from("recipes")
@@ -240,6 +263,39 @@ export function useUpdateRecipe() {
       queryClient.invalidateQueries({
         queryKey: todoRecipesQueryKey(recipe.board_id),
       });
+      queryClient.invalidateQueries({
+        queryKey: archiveRecipesQueryKey(recipe.board_id),
+      });
+    },
+  });
+}
+
+export interface CookAgainInput {
+  id: string;
+  boardId: string;
+  /** 呼び出し時点のcook_count。+1した値とcooked_at=now()を保存する。 */
+  currentCount: number;
+}
+
+/** 詳細画面の「また作った!」。cook_countを+1し、cooked_atを更新する。 */
+export async function cookAgain({ id, currentCount }: CookAgainInput): Promise<Recipe> {
+  const { data, error } = await supabase
+    .from("recipes")
+    .update({ cook_count: currentCount + 1, cooked_at: new Date().toISOString() })
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+export function useCookAgain() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: cookAgain,
+    onSuccess: (recipe) => {
+      queryClient.setQueryData(recipeQueryKey(recipe.id), recipe);
       queryClient.invalidateQueries({
         queryKey: archiveRecipesQueryKey(recipe.board_id),
       });
