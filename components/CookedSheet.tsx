@@ -3,6 +3,7 @@
 import { ArrowsClockwise } from "@phosphor-icons/react/dist/csr/ArrowsClockwise";
 import { Camera } from "@phosphor-icons/react/dist/csr/Camera";
 import { HandPalm } from "@phosphor-icons/react/dist/csr/HandPalm";
+import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { Sheet } from "./Sheet";
 import { useToast } from "./Toast";
@@ -29,7 +30,21 @@ const VERDICT_TOAST: Record<"repeat" | "meh", string> = {
  */
 export function CookedSheet({ recipe, onClose }: CookedSheetProps) {
   const toast = useToast();
-  const markCooked = useMarkRecipeCooked();
+  const router = useRouter();
+  // シートは選択と同時に即クローズするため、成功時の後処理(トースト・遷移)は
+  // mutate()呼び出し時ではなくフック生成時のオプションに登録する
+  // (詳しい理由はuseMarkRecipeCookedOptions側のコメント参照)。
+  const markCooked = useMarkRecipeCooked({
+    onSuccess: (variables) => {
+      if (variables.verdict) {
+        toast(VERDICT_TOAST[variables.verdict]);
+        router.push("/archive");
+      } else {
+        toast("作った!を保存しました(未評価)");
+      }
+    },
+    onError: () => toast("保存に失敗しました。もう一度お試しください"),
+  });
   const [memo, setMemo] = useState("");
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
@@ -62,19 +77,13 @@ export function CookedSheet({ recipe, onClose }: CookedSheetProps) {
       }
     }
 
-    markCooked.mutate(
-      {
-        id: recipe.id,
-        boardId: recipe.board_id,
-        verdict,
-        memo: memo.trim() || null,
-        photoPath,
-      },
-      {
-        onSuccess: () => toast(VERDICT_TOAST[verdict]),
-        onError: () => toast("保存に失敗しました。もう一度お試しください"),
-      },
-    );
+    markCooked.mutate({
+      id: recipe.id,
+      boardId: recipe.board_id,
+      verdict,
+      memo: memo.trim() || null,
+      photoPath,
+    });
     onClose();
   }
 
@@ -82,13 +91,7 @@ export function CookedSheet({ recipe, onClose }: CookedSheetProps) {
     if (!choiceMadeRef.current) {
       // 選ばずに閉じた場合も「作った!」タップ自体は確定として保存する
       choiceMadeRef.current = true;
-      markCooked.mutate(
-        { id: recipe.id, boardId: recipe.board_id, verdict: null },
-        {
-          onSuccess: () => toast("作った!を保存しました(未評価)"),
-          onError: () => toast("保存に失敗しました。もう一度お試しください"),
-        },
-      );
+      markCooked.mutate({ id: recipe.id, boardId: recipe.board_id, verdict: null });
     }
     onClose();
   }
