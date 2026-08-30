@@ -44,12 +44,19 @@ const VERDICT: Record<
  */
 export function VerdictBadge({
   verdict,
+  count,
   className = "",
 }: {
   verdict: RecipeVerdict | null;
+  /** リピート確定回数。2回以上のときだけ「×N」をバッジ内に添える。 */
+  count?: number;
   className?: string;
 }) {
   const { label, Icon, style } = VERDICT[verdict ?? "none"];
+  const displayLabel =
+    verdict === "repeat" && count !== undefined && count >= 2
+      ? `${label} ×${count}`
+      : label;
 
   return (
     <span
@@ -57,7 +64,7 @@ export function VerdictBadge({
       style={style}
     >
       <Icon size={15} weight="duotone" />
-      {label}
+      {displayLabel}
     </span>
   );
 }

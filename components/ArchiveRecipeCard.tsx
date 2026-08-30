@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { CategoryTag } from "./CategoryChips";
 import { RecipeThumbnail } from "./RecipeThumbnail";
 import { VerdictBadge } from "./VerdictBadge";
 import type { Recipe } from "@/lib/recipes";
@@ -12,15 +13,10 @@ interface ArchiveRecipeCardProps {
 
 /**
  * アーカイブの1行。ホームより一段小さいサムネイル・タイトルで、右端は評価バッジ。
- * カテゴリはタグではなく補助テキストに畳んで、行の要素数を抑える。
+ * カテゴリはホーム行と同じ配色タグで表示する。
  */
 export function ArchiveRecipeCard({ recipe, adderName }: ArchiveRecipeCardProps) {
-  const subtitle = [
-    adderName ? `${adderName}が追加` : null,
-    recipe.category,
-  ]
-    .filter(Boolean)
-    .join(" ・ ");
+  const adderText = adderName ? `${adderName}が追加` : null;
 
   return (
     <div className="relative flex items-center gap-3.5">
@@ -33,10 +29,15 @@ export function ArchiveRecipeCard({ recipe, adderName }: ArchiveRecipeCardProps)
         >
           {recipe.title}
         </Link>
-        {subtitle && <span className="ck-meta truncate">{subtitle}</span>}
+        {(adderText || recipe.category) && (
+          <div className="flex items-center gap-1.5">
+            {adderText && <span className="ck-meta truncate">{adderText}</span>}
+            {recipe.category && <CategoryTag category={recipe.category} />}
+          </div>
+        )}
       </div>
 
-      <VerdictBadge verdict={recipe.verdict} />
+      <VerdictBadge verdict={recipe.verdict} count={recipe.cook_count} />
     </div>
   );
 }
