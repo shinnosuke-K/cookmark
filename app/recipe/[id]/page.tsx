@@ -4,7 +4,6 @@ import { ArrowSquareOut } from "@phosphor-icons/react/dist/csr/ArrowSquareOut";
 import { ArrowsClockwise } from "@phosphor-icons/react/dist/csr/ArrowsClockwise";
 import { CaretLeft } from "@phosphor-icons/react/dist/csr/CaretLeft";
 import { InstagramLogo } from "@phosphor-icons/react/dist/csr/InstagramLogo";
-import { ThumbsDown } from "@phosphor-icons/react/dist/csr/ThumbsDown";
 import { Trash } from "@phosphor-icons/react/dist/csr/Trash";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
@@ -12,7 +11,7 @@ import { useState } from "react";
 import { CategoryChips } from "@/components/CategoryChips";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { InstagramEmbed } from "@/components/InstagramEmbed";
-import { StatusBadge } from "@/components/VerdictBadge";
+import { StatusBadge, VERDICT_STYLE, verdictChipStyle } from "@/components/VerdictBadge";
 import { useToast } from "@/components/Toast";
 import { useBoardMembers } from "@/lib/recipes";
 import { useMyMember } from "@/lib/board";
@@ -106,7 +105,7 @@ export default function RecipeDetailPage() {
   function handleCookAgain() {
     if (!recipe) return;
     cookAgain.mutate(
-      { id: recipe.id, boardId: recipe.board_id, currentCount: recipe.cook_count },
+      { id: recipe.id, currentCount: recipe.cook_count },
       {
         onSuccess: (updated) => toast(`${updated.cook_count}回目を記録しました`),
         onError: () => toast("記録に失敗しました。もう一度お試しください"),
@@ -260,55 +259,26 @@ export default function RecipeDetailPage() {
           <div>
             <span className="ck-label">評価</span>
             <div className="flex gap-2" role="group" aria-label="評価">
-              <button
-                type="button"
-                aria-pressed={verdict === "repeat"}
-                onClick={() => {
-                  setVerdict((prev) => (prev === "repeat" ? null : "repeat"));
-                  setDirty(true);
-                }}
-                className="ck-tag ck-chip px-3.5 py-1.5"
-                style={
-                  verdict === "repeat"
-                    ? {
-                        background: "var(--color-accent-2-600)",
-                        color: "#fff",
-                        fontWeight: 600,
-                      }
-                    : {
-                        background: "var(--color-accent-2-100)",
-                        color: "var(--color-accent-2-700)",
-                        opacity: 0.75,
-                      }
-                }
-              >
-                <ArrowsClockwise size={15} weight="duotone" />
-                リピート確定
-              </button>
-              <button
-                type="button"
-                aria-pressed={verdict === "meh"}
-                onClick={() => {
-                  setVerdict((prev) => (prev === "meh" ? null : "meh"));
-                  setDirty(true);
-                }}
-                className="ck-tag ck-chip px-3.5 py-1.5"
-                style={
-                  verdict === "meh"
-                    ? {
-                        background: "var(--color-neutral-300)",
-                        color: "var(--color-neutral-800)",
-                      }
-                    : {
-                        border: "1.5px dashed var(--color-neutral-500)",
-                        background: "transparent",
-                        color: "var(--color-neutral-700)",
-                      }
-                }
-              >
-                <ThumbsDown size={15} weight="duotone" />
-                イマイチ
-              </button>
+              {(["repeat", "meh"] as const).map((v) => {
+                const { label, Icon } = VERDICT_STYLE[v];
+                const selected = verdict === v;
+                return (
+                  <button
+                    key={v}
+                    type="button"
+                    aria-pressed={selected}
+                    onClick={() => {
+                      setVerdict((prev) => (prev === v ? null : v));
+                      setDirty(true);
+                    }}
+                    className="ck-tag ck-chip px-3.5 py-1.5"
+                    style={verdictChipStyle(v, selected)}
+                  >
+                    <Icon size={15} weight="duotone" />
+                    {label}
+                  </button>
+                );
+              })}
             </div>
           </div>
         )}

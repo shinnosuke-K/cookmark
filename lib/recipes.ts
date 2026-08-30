@@ -272,7 +272,6 @@ export function useUpdateRecipe() {
 
 export interface CookAgainInput {
   id: string;
-  boardId: string;
   /** 呼び出し時点のcook_count。+1した値とcooked_at=now()を保存する。 */
   currentCount: number;
 }

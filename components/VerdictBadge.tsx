@@ -6,37 +6,64 @@ import { ThumbsDown } from "@phosphor-icons/react/dist/csr/ThumbsDown";
 import type { CSSProperties } from "react";
 import type { RecipeVerdict } from "@/lib/database.types";
 
-const VERDICT: Record<
-  "repeat" | "meh" | "none",
-  { label: string; Icon: typeof ArrowsClockwise; style: CSSProperties }
+/**
+ * リピート確定/イマイチの色定義。塗りバッジ(VerdictBadge)と詳細画面のトグル
+ * チップ(選択/非選択)の両方がここを参照する、評価まわりの唯一の色ソース。
+ */
+export const VERDICT_STYLE: Record<
+  "repeat" | "meh",
+  {
+    label: string;
+    Icon: typeof ArrowsClockwise;
+    /** バッジ・選択中チップの塗り */
+    selected: CSSProperties;
+    /** 非選択チップの薄塗り。リピート確定・イマイチで同じ「薄塗り」の言語に揃え、
+     *  片方だけ違う見た目(破線等)にしないようにする。 */
+    unselected: CSSProperties;
+  }
 > = {
   repeat: {
     label: "リピート確定",
     Icon: ArrowsClockwise,
-    style: {
+    selected: {
       background: "var(--color-accent-2-600)",
       color: "#fff",
       fontWeight: 600,
+    },
+    unselected: {
+      background: "var(--color-accent-2-100)",
+      color: "var(--color-accent-2-700)",
     },
   },
   meh: {
     label: "イマイチ",
     Icon: ThumbsDown,
-    style: {
+    selected: {
       background: "var(--color-neutral-300)",
       color: "var(--color-neutral-800)",
     },
-  },
-  none: {
-    label: "未評価",
-    Icon: Question,
-    style: {
-      border: "1.5px dashed var(--color-neutral-500)",
-      background: "transparent",
+    unselected: {
+      background: "var(--color-neutral-200)",
       color: "var(--color-neutral-700)",
     },
   },
 };
+
+const NONE_STYLE: CSSProperties = {
+  border: "1.5px dashed var(--color-neutral-500)",
+  background: "transparent",
+  color: "var(--color-neutral-700)",
+};
+
+/** 詳細画面の評価トグルチップのスタイルを返す。選択中はバッジと同じ塗り。 */
+export function verdictChipStyle(
+  verdict: "repeat" | "meh",
+  selected: boolean,
+): CSSProperties {
+  return selected
+    ? VERDICT_STYLE[verdict].selected
+    : VERDICT_STYLE[verdict].unselected;
+}
 
 /**
  * 評価バッジ。リピート確定だけがマゼンタ塗り、イマイチはグレー塗り、
@@ -52,7 +79,10 @@ export function VerdictBadge({
   count?: number;
   className?: string;
 }) {
-  const { label, Icon, style } = VERDICT[verdict ?? "none"];
+  const entry = verdict ? VERDICT_STYLE[verdict] : null;
+  const label = entry?.label ?? "未評価";
+  const Icon = entry?.Icon ?? Question;
+  const style = entry?.selected ?? NONE_STYLE;
   const displayLabel =
     verdict === "repeat" && count !== undefined && count >= 2
       ? `${label} ×${count}`
