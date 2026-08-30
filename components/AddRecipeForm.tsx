@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { CategoryChips } from "./CategoryChips";
 import { Sheet } from "./Sheet";
 import { useToast } from "./Toast";
@@ -60,26 +60,54 @@ export function AddRecipeForm({
   // タイトル・投稿者が未入力のときだけ流し込み、キャプション・画像URLは追加確定時の
   // 後処理(handleSubmit)で使うためrefに保持しておく。
   const ogDataRef = useRef<OgData | null>(null);
+  // 直近に取得済み(または取得中)のshortcode。同じshortcodeへの再取得や、
+  // 後から来た古いリクエストのレスポンスで新しい入力を上書きしてしまうのを防ぐ。
+  const lastFetchedShortcodeRef = useRef<string | null>(null);
+
+  const applyOgData = useCallback((data: OgData) => {
+    ogDataRef.current = data;
+    setTitle((prev) => (prev.trim() === "" ? data.title : prev));
+    const handle = data.authorHandle;
+    if (handle) {
+      setAuthorHandle((prev) => (prev.trim() === "" ? handle : prev));
+    }
+  }, []);
 
   useEffect(() => {
     const parsed = parseInstagramUrl(initial.url);
     if (!parsed) return;
+    lastFetchedShortcodeRef.current = parsed.shortcode;
 
     let cancelled = false;
     fetchOgData(parsed.shortcode).then((data) => {
       if (cancelled || !data) return;
-      ogDataRef.current = data;
-      setTitle((prev) => (prev.trim() === "" ? data.title : prev));
-      const handle = data.authorHandle;
-      if (handle) {
-        setAuthorHandle((prev) => (prev.trim() === "" ? handle : prev));
-      }
+      applyOgData(data);
     });
 
     return () => {
       cancelled = true;
     };
-  }, [initial.url]);
+  }, [initial.url, applyOgData]);
+
+  // 手動入力・貼り付けによるURL欄の変更を検知した自動取得。連打のたびに叩かない
+  // よう600msデバウンスし、直近に扱ったshortcodeと同じ間は何もしない。デバウンス後
+  // 実際にfetchを開始する直前にlastFetchedShortcodeRefを更新しておくことで、後から
+  // 別のURLに変わった場合に古いレスポンスが新しい入力を上書きしないようにする。
+  useEffect(() => {
+    const parsed = parseInstagramUrl(url);
+    if (!parsed || parsed.shortcode === lastFetchedShortcodeRef.current) return;
+
+    const timer = setTimeout(() => {
+      const shortcode = parsed.shortcode;
+      lastFetchedShortcodeRef.current = shortcode;
+      fetchOgData(shortcode).then((data) => {
+        if (!data || lastFetchedShortcodeRef.current !== shortcode) return;
+        applyOgData(data);
+      });
+    }, 600);
+
+    return () => clearTimeout(timer);
+  }, [url, applyOgData]);
 
   // 追加確定後、自動取得した画像があればダウンロード→圧縮アップロード→photo_path更新まで
   // バックグラウンドで行う。どこで失敗してもレシピ自体は正常に登録済みなので握りつぶす。
