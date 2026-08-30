@@ -102,7 +102,9 @@ export function AddRecipeForm({
 
     let cancelled = false;
     fetchOgData(parsed.shortcode).then((data) => {
-      if (cancelled || !data) return;
+      // URL欄が編集されてshortcodeが変わった/解析不能になった後に届いた
+      // 遅延レスポンスは捨てる(効果2と同じガード)
+      if (cancelled || !data || lastFetchedShortcodeRef.current !== parsed.shortcode) return;
       applyOgData(data);
     });
 
