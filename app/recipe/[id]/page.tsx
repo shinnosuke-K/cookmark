@@ -1,8 +1,10 @@
 "use client";
 
 import { ArrowSquareOut } from "@phosphor-icons/react/dist/csr/ArrowSquareOut";
+import { ArrowsClockwise } from "@phosphor-icons/react/dist/csr/ArrowsClockwise";
 import { CaretLeft } from "@phosphor-icons/react/dist/csr/CaretLeft";
 import { InstagramLogo } from "@phosphor-icons/react/dist/csr/InstagramLogo";
+import { ThumbsDown } from "@phosphor-icons/react/dist/csr/ThumbsDown";
 import { Trash } from "@phosphor-icons/react/dist/csr/Trash";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
@@ -14,8 +16,13 @@ import { StatusBadge } from "@/components/VerdictBadge";
 import { useToast } from "@/components/Toast";
 import { useBoardMembers } from "@/lib/recipes";
 import { useMyMember } from "@/lib/board";
-import type { RecipeCategory } from "@/lib/database.types";
-import { useDeleteRecipe, useRecipe, useUpdateRecipe } from "@/lib/recipes";
+import type { RecipeCategory, RecipeVerdict } from "@/lib/database.types";
+import {
+  useCookAgain,
+  useDeleteRecipe,
+  useRecipe,
+  useUpdateRecipe,
+} from "@/lib/recipes";
 
 export default function RecipeDetailPage() {
   const toast = useToast();
@@ -26,10 +33,12 @@ export default function RecipeDetailPage() {
   const { data: members } = useBoardMembers(member?.board_id);
   const updateRecipe = useUpdateRecipe();
   const deleteRecipe = useDeleteRecipe();
+  const cookAgain = useCookAgain();
 
   const [title, setTitle] = useState("");
   const [memo, setMemo] = useState("");
   const [category, setCategory] = useState<RecipeCategory | null>(null);
+  const [verdict, setVerdict] = useState<RecipeVerdict | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   // recipeが読み込まれた/切り替わった、またはフォーム未編集のまま新しいデータが
@@ -41,6 +50,7 @@ export default function RecipeDetailPage() {
     title: string;
     memo: string;
     category: RecipeCategory | null;
+    verdict: RecipeVerdict | null;
   } | null>(null);
   const needsReseed =
     recipe &&
@@ -49,17 +59,20 @@ export default function RecipeDetailPage() {
       (!dirty &&
         (recipe.title !== seeded.title ||
           (recipe.memo ?? "") !== seeded.memo ||
-          recipe.category !== seeded.category)));
+          recipe.category !== seeded.category ||
+          recipe.verdict !== seeded.verdict)));
   if (needsReseed && recipe) {
     setSeeded({
       id: recipe.id,
       title: recipe.title,
       memo: recipe.memo ?? "",
       category: recipe.category,
+      verdict: recipe.verdict,
     });
     setTitle(recipe.title);
     setMemo(recipe.memo ?? "");
     setCategory(recipe.category);
+    setVerdict(recipe.verdict);
     setDirty(false);
   }
 
@@ -78,6 +91,7 @@ export default function RecipeDetailPage() {
         title: trimmedTitle,
         memo: memo.trim() || null,
         category,
+        ...(recipe.status === "cooked" ? { verdict } : {}),
       },
       {
         onSuccess: () => {
@@ -85,6 +99,17 @@ export default function RecipeDetailPage() {
           toast("保存しました");
         },
         onError: () => toast("保存に失敗しました。もう一度お試しください"),
+      },
+    );
+  }
+
+  function handleCookAgain() {
+    if (!recipe) return;
+    cookAgain.mutate(
+      { id: recipe.id, boardId: recipe.board_id, currentCount: recipe.cook_count },
+      {
+        onSuccess: (updated) => toast(`${updated.cook_count}回目を記録しました`),
+        onError: () => toast("記録に失敗しました。もう一度お試しください"),
       },
     );
   }
@@ -153,6 +178,20 @@ export default function RecipeDetailPage() {
       <div className="mt-1.5 flex flex-wrap items-center gap-2.5">
         {subtitle && <span className="ck-meta">{subtitle}</span>}
         <StatusBadge status={recipe.status} verdict={recipe.verdict} />
+        {recipe.status === "cooked" && (
+          <>
+            <span className="ck-meta text-[14px]">{recipe.cook_count}回作った</span>
+            <button
+              type="button"
+              onClick={handleCookAgain}
+              disabled={cookAgain.isPending}
+              className="ck-btn ck-btn-primary ck-pill min-h-11 px-4 text-[14px]"
+            >
+              <ArrowsClockwise size={16} weight="duotone" />
+              また作った!
+            </button>
+          </>
+        )}
       </div>
 
       {/* 写真はリストのサムネイル専用。詳細画面ではembedのみ表示する。
@@ -216,6 +255,63 @@ export default function RecipeDetailPage() {
             }}
           />
         </div>
+
+        {recipe.status === "cooked" && (
+          <div>
+            <span className="ck-label">評価</span>
+            <div className="flex gap-2" role="group" aria-label="評価">
+              <button
+                type="button"
+                aria-pressed={verdict === "repeat"}
+                onClick={() => {
+                  setVerdict((prev) => (prev === "repeat" ? null : "repeat"));
+                  setDirty(true);
+                }}
+                className="ck-tag ck-chip px-3.5 py-1.5"
+                style={
+                  verdict === "repeat"
+                    ? {
+                        background: "var(--color-accent-2-600)",
+                        color: "#fff",
+                        fontWeight: 600,
+                      }
+                    : {
+                        background: "var(--color-accent-2-100)",
+                        color: "var(--color-accent-2-700)",
+                        opacity: 0.75,
+                      }
+                }
+              >
+                <ArrowsClockwise size={15} weight="duotone" />
+                リピート確定
+              </button>
+              <button
+                type="button"
+                aria-pressed={verdict === "meh"}
+                onClick={() => {
+                  setVerdict((prev) => (prev === "meh" ? null : "meh"));
+                  setDirty(true);
+                }}
+                className="ck-tag ck-chip px-3.5 py-1.5"
+                style={
+                  verdict === "meh"
+                    ? {
+                        background: "var(--color-neutral-300)",
+                        color: "var(--color-neutral-800)",
+                      }
+                    : {
+                        border: "1.5px dashed var(--color-neutral-500)",
+                        background: "transparent",
+                        color: "var(--color-neutral-700)",
+                      }
+                }
+              >
+                <ThumbsDown size={15} weight="duotone" />
+                イマイチ
+              </button>
+            </div>
+          </div>
+        )}
 
         <div>
           <label className="ck-label" htmlFor="detail-memo">
