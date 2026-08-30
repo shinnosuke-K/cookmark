@@ -1,17 +1,12 @@
 "use client";
 
-import { Button } from "@astryxdesign/core/Button";
-import { EmptyState } from "@astryxdesign/core/EmptyState";
-import { Heading } from "@astryxdesign/core/Heading";
-import { Text } from "@astryxdesign/core/Text";
-import { TextInput } from "@astryxdesign/core/TextInput";
-import { useToast } from "@astryxdesign/core/Toast";
-import { VStack } from "@astryxdesign/core/VStack";
+import { ForkKnife } from "@phosphor-icons/react/dist/csr/ForkKnife";
 import { useEffect, useState } from "react";
-import { useCreateBoard, useMyMember } from "@/lib/board";
 import { AddRecipeForm, type AddRecipeFormInitial } from "@/components/AddRecipeForm";
 import { PasteBanner } from "@/components/PasteBanner";
 import { RecipeCard } from "@/components/RecipeCard";
+import { useToast } from "@/components/Toast";
+import { useCreateBoard, useMyMember } from "@/lib/board";
 import { extractAuthorHandle, parseInstagramUrl } from "@/lib/instagram";
 import { useBoardMembers, useTodoRecipes } from "@/lib/recipes";
 
@@ -68,99 +63,106 @@ export default function Home() {
     e.preventDefault();
     const trimmed = name.trim();
     if (!trimmed) {
-      toast({ type: "error", body: "名前を入力してください" });
+      toast("名前を入力してください");
       return;
     }
     createBoard.mutate(trimmed, {
-      onSuccess: () => {
-        toast({ body: "ボードを作成しました!" });
-      },
-      onError: () => {
-        toast({ type: "error", body: "ボードの作成に失敗しました。もう一度お試しください" });
-      },
+      onSuccess: () => toast("ボードを作成しました!"),
+      onError: () => toast("ボードの作成に失敗しました。もう一度お試しください"),
     });
   }
 
   if (isLoading) {
     return (
-      <Text type="body" color="secondary" className="flex flex-1 items-center justify-center p-8">
+      <div className="ck-screen ck-meta items-center justify-center">
         読み込み中...
-      </Text>
+      </div>
     );
   }
 
+  // まだどのボードにも参加していないとき。招待参加(4e)と同じ体裁で
+  // 「新しくボードを作る」導線を出す。
   if (!member) {
     return (
-      <VStack gap={8} hAlign="center" justify="center" className="flex-1 p-6 text-center">
-        <VStack gap={2}>
-          <Heading level={1}>Cookmarkへようこそ</Heading>
-          <Text type="body" color="secondary">
-            夫婦でInstagramのレシピを共有・管理するアプリです
-          </Text>
-        </VStack>
+      <div className="flex flex-1 flex-col items-center justify-center px-[34px] text-center">
+        <ForkKnife size={44} weight="duotone" color="var(--color-accent)" />
+        <h1 className="mt-[18px] mb-2 text-[24px] leading-[1.25] font-semibold tracking-[-0.015em]">
+          Cookmarkへようこそ
+        </h1>
+        <p className="mb-8 text-[15px] text-[rgba(32,30,29,.6)]">
+          夫婦でInstagramのレシピを共有・管理するアプリです
+        </p>
 
-        <VStack
-          as="form"
-          onSubmit={handleCreateBoard}
-          gap={4}
-          className="w-full max-w-xs text-left"
-        >
-          <TextInput
-            label="あなたの名前"
+        <form onSubmit={handleCreateBoard} className="w-full text-left">
+          <label className="ck-label" htmlFor="board-name">
+            あなたの名前
+          </label>
+          <input
+            id="board-name"
+            className="ck-input min-h-12 text-[16px]"
             value={name}
-            onChange={setName}
+            onChange={(e) => setName(e.target.value)}
             placeholder="例: 夫、妻"
           />
-          <Button
+          <button
             type="submit"
-            label={createBoard.isPending ? "作成中..." : "新しくボードを作る"}
-            variant="primary"
-            size="lg"
-            width="100%"
-            className="min-h-11"
-            isDisabled={createBoard.isPending}
-          />
-        </VStack>
+            disabled={createBoard.isPending}
+            className="ck-btn ck-btn-primary mt-[18px] min-h-14 w-full text-[17px]"
+          >
+            {createBoard.isPending ? "作成中..." : "新しくボードを作る"}
+          </button>
+        </form>
 
-        <Text type="body" color="secondary" className="max-w-xs">
+        <p className="mt-7 text-[14px] leading-[1.6] text-[rgba(32,30,29,.6)]">
           パートナーがすでにボードを作っている場合は、届いた招待URLを開いて参加してください
-        </Text>
-      </VStack>
+        </p>
+      </div>
     );
   }
 
   const memberNames = new Map((members ?? []).map((m) => [m.id, m.display_name]));
 
   return (
-    <VStack gap={4} className="flex-1 p-4">
+    <>
+      <div className="ck-screen">
+        <h1 className="ck-title mb-6">Cookmark</h1>
+
+        {recipesLoading ? (
+          <p className="ck-meta py-8 text-center">読み込み中...</p>
+        ) : recipes && recipes.length > 0 ? (
+          <ul
+            className="flex flex-col gap-[26px]"
+            style={{ paddingBottom: "calc(var(--tabbar-h) + 104px)" }}
+          >
+            {recipes.map((recipe) => (
+              <li key={recipe.id}>
+                <RecipeCard
+                  recipe={recipe}
+                  adderName={memberNames.get(recipe.added_by)}
+                />
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <div
+            className="flex flex-1 flex-col items-center justify-center gap-1.5 text-[rgba(32,30,29,.55)]"
+            style={{ paddingBottom: "calc(var(--tabbar-h) + 34px)" }}
+          >
+            <ForkKnife size={36} weight="duotone" />
+            <p className="text-[17px] font-semibold text-text">
+              レシピはまだありません
+            </p>
+            <p className="text-[14px]">下のボタンから追加しましょう</p>
+          </div>
+        )}
+      </div>
+
       <PasteBanner
         onOpen={(initial) => {
           setFormInitial(initial);
           setFormOpen(true);
         }}
       />
-
-      {recipesLoading ? (
-        <Text type="body" color="secondary" className="p-8 text-center">
-          読み込み中...
-        </Text>
-      ) : recipes && recipes.length > 0 ? (
-        <VStack as="ul" gap={3}>
-          {recipes.map((recipe) => (
-            <li key={recipe.id}>
-              <RecipeCard
-                recipe={recipe}
-                adderName={memberNames.get(recipe.added_by)}
-              />
-            </li>
-          ))}
-        </VStack>
-      ) : (
-        <EmptyState
-          title="レシピはまだありません"
-          description="上のボタンから追加しましょう"
-        />
-      )}
 
       {formOpen && (
         <AddRecipeForm
@@ -170,6 +172,6 @@ export default function Home() {
           onClose={() => setFormOpen(false)}
         />
       )}
-    </VStack>
+    </>
   );
 }

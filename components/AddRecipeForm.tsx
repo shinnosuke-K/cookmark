@@ -1,23 +1,15 @@
 "use client";
 
-import { BottomSheet } from "@astryxdesign/core/BottomSheet";
-import { Button } from "@astryxdesign/core/Button";
-import { Heading } from "@astryxdesign/core/Heading";
-import { HStack } from "@astryxdesign/core/HStack";
-import { Text } from "@astryxdesign/core/Text";
-import { TextInput } from "@astryxdesign/core/TextInput";
-import { useToast } from "@astryxdesign/core/Toast";
-import { ToggleButton, ToggleButtonGroup } from "@astryxdesign/core/ToggleButton";
-import { VStack } from "@astryxdesign/core/VStack";
 import { useEffect, useRef, useState } from "react";
+import { CategoryChips } from "./CategoryChips";
+import { Sheet } from "./Sheet";
+import { useToast } from "./Toast";
 import { fetchOgData, parseInstagramUrl, type OgData } from "@/lib/instagram";
 import { uploadRecipePhoto } from "@/lib/photos";
 import { useAddRecipe, useUpdateRecipe, type Recipe } from "@/lib/recipes";
 import type { RecipeCategory } from "@/lib/database.types";
 
 const OG_CAPTION_MAX_LENGTH = 2000;
-
-const CATEGORIES: RecipeCategory[] = ["主菜", "副菜", "汁物", "麺・丼", "おやつ"];
 
 /**
  * Unicodeのコードポイント単位で文字列を切り詰める。`string.slice()` はUTF-16
@@ -44,11 +36,8 @@ interface AddRecipeFormProps {
 }
 
 /**
- * 貼り付けバナー・共有シート受け(share_target)の両方から開かれる追加フォーム。
+ * 貼り付けピル・共有シート受け(share_target)の両方から開かれる追加ボトムシート。
  * InstagramのURLが解析できてもできなくても、タイトルさえ入れれば追加できる。
- * 呼び出し側が条件付きレンダーで開閉するため、BottomSheetは常時isOpenのまま
- * マウントし、閉じる操作(スワイプ/オーバーレイタップ/Escape/キャンセル)は
- * すべてonCloseへ委譲する。
  */
 export function AddRecipeForm({
   boardId,
@@ -120,7 +109,7 @@ export function AddRecipeForm({
   function handleSubmit() {
     const trimmedTitle = title.trim();
     if (!trimmedTitle) {
-      toast({ type: "error", body: "タイトルを入力してください" });
+      toast("タイトルを入力してください");
       return;
     }
 
@@ -135,91 +124,106 @@ export function AddRecipeForm({
         category,
         instagramUrl: parsed?.cleanUrl ?? null,
         postShortcode: parsed?.shortcode ?? null,
-        memo: ogData?.caption ? truncateToCodePoints(ogData.caption, OG_CAPTION_MAX_LENGTH) : null,
+        memo: ogData?.caption
+          ? truncateToCodePoints(ogData.caption, OG_CAPTION_MAX_LENGTH)
+          : null,
       },
       {
         onSuccess: (recipe) => {
-          toast({ body: "レシピを追加しました" });
+          toast("レシピを追加しました");
           onClose();
           if (ogData?.imageUrl) {
             void attachOgPhoto(recipe, ogData.imageUrl);
           }
         },
-        onError: () => {
-          toast({ type: "error", body: "追加に失敗しました。もう一度お試しください" });
-        },
+        onError: () => toast("追加に失敗しました。もう一度お試しください"),
       },
     );
   }
 
+  function handleEnter(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleSubmit();
+    }
+  }
+
   return (
-    <BottomSheet
-      label="レシピを追加"
-      isOpen
-      onOpenChange={(next) => {
-        if (!next) onClose();
-      }}
-      height="tall"
-    >
-      <VStack gap={4} padding={4}>
-        <Heading level={2}>レシピを追加</Heading>
+    <Sheet label="レシピを追加" onClose={onClose}>
+      <p className="mb-[18px] text-[23px] font-semibold">レシピを追加</p>
 
-        <TextInput
-          label="InstagramのURL(任意)"
-          value={url}
-          onChange={setUrl}
-          onEnter={handleSubmit}
-          placeholder="https://www.instagram.com/p/..."
-        />
+      <div className="flex flex-col gap-3.5">
+        <div>
+          <label className="ck-label" htmlFor="add-url">
+            InstagramのURL(任意)
+          </label>
+          <input
+            id="add-url"
+            className="ck-input min-h-11 font-mono text-[14px]"
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            onKeyDown={handleEnter}
+            placeholder="https://www.instagram.com/p/..."
+            inputMode="url"
+          />
+        </div>
 
-        <TextInput
-          label="タイトル"
-          value={title}
-          onChange={setTitle}
-          onEnter={handleSubmit}
-          placeholder="例: 鶏むね肉のねぎ塩レモン"
-          hasAutoFocus
-        />
+        <div>
+          <label className="ck-label" htmlFor="add-title">
+            タイトル(必須)
+          </label>
+          <input
+            id="add-title"
+            className="ck-input min-h-11"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            onKeyDown={handleEnter}
+            placeholder="例: 鶏むね肉のねぎ塩レモン"
+            autoFocus
+          />
+        </div>
 
-        <VStack gap={2}>
-          <Text type="label">カテゴリ(任意)</Text>
-          <ToggleButtonGroup
+        <div>
+          <span className="ck-label">カテゴリ(任意)</span>
+          <CategoryChips
             label="カテゴリ"
             value={category}
-            onChange={(value) => setCategory(value as RecipeCategory | null)}
-          >
-            {CATEGORIES.map((c) => (
-              <ToggleButton key={c} value={c} label={c} />
-            ))}
-          </ToggleButtonGroup>
-        </VStack>
+            onChange={setCategory}
+          />
+        </div>
 
-        <TextInput
-          label="投稿者ハンドル(任意)"
-          value={authorHandle}
-          onChange={setAuthorHandle}
-          onEnter={handleSubmit}
-          placeholder="例: foodie_taro"
-        />
+        <div>
+          <label className="ck-label" htmlFor="add-handle">
+            投稿者ハンドル(任意)
+          </label>
+          <input
+            id="add-handle"
+            className="ck-input min-h-11"
+            value={authorHandle}
+            onChange={(e) => setAuthorHandle(e.target.value)}
+            onKeyDown={handleEnter}
+            placeholder="例: foodie_taro"
+          />
+        </div>
 
-        <HStack gap={3}>
-          <Button
-            label="キャンセル"
-            variant="secondary"
-            size="lg"
-            className="min-h-11 flex-1"
+        <div className="mt-1.5 flex gap-3">
+          <button
+            type="button"
             onClick={onClose}
-          />
-          <Button
-            label={addRecipe.isPending ? "追加中..." : "追加する"}
-            variant="primary"
-            size="lg"
-            className="min-h-11 flex-1"
-            isDisabled={addRecipe.isPending}
+            className="ck-btn ck-btn-secondary min-h-[52px] flex-1 text-[16px]"
+          >
+            キャンセル
+          </button>
+          <button
+            type="button"
             onClick={handleSubmit}
-          />
-        </HStack>
-      </VStack>
-    </BottomSheet>
+            disabled={addRecipe.isPending}
+            className="ck-btn ck-btn-primary min-h-[52px] flex-2 text-[16px]"
+          >
+            {addRecipe.isPending ? "追加中..." : "追加する"}
+          </button>
+        </div>
+      </div>
+    </Sheet>
   );
 }
