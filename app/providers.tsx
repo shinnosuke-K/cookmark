@@ -1,16 +1,13 @@
 "use client";
 
 import { LayerProvider } from "@astryxdesign/core/Layer";
-import { LinkProvider } from "@astryxdesign/core/Link";
-import { useToast } from "@astryxdesign/core/Toast";
 import { QueryCache, QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import NextLink from "next/link";
 import { useState } from "react";
+import { ToastProvider, useToast } from "@/components/Toast";
 
 /**
  * QueryClientの生成とグローバルエラーのトースト表示。
- * useToast()はLayerProviderのトーストコンテキストを介して呼び出す必要があるため、
- * LayerProviderの内側の専用コンポーネントに分離している。
+ * useToast()はToastProviderの内側でしか呼べないため、専用コンポーネントに分離している。
  */
 function QueryProvider({ children }: { children: React.ReactNode }) {
   const toast = useToast();
@@ -24,10 +21,7 @@ function QueryProvider({ children }: { children: React.ReactNode }) {
         },
         queryCache: new QueryCache({
           onError: (error) => {
-            toast({
-              type: "error",
-              body: error instanceof Error ? error.message : "エラーが発生しました",
-            });
+            toast(error instanceof Error ? error.message : "エラーが発生しました");
           },
         }),
       }),
@@ -40,10 +34,16 @@ function QueryProvider({ children }: { children: React.ReactNode }) {
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
-    <LinkProvider component={NextLink}>
+    <ToastProvider>
+      {/*
+        TODO(一時的): `app/join/[token]/page.tsx` だけがまだAstryx実装のまま残って
+        おり、そのuseToastがLayerProviderを要求する。同ファイルを
+        `components/JoinScreen.tsx` に差し替えたら、このLayerProviderごと
+        @astryxdesign/core への依存を落とせる。
+      */}
       <LayerProvider>
         <QueryProvider>{children}</QueryProvider>
       </LayerProvider>
-    </LinkProvider>
+    </ToastProvider>
   );
 }

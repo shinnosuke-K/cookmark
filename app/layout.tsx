@@ -1,17 +1,15 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Source_Serif_4 } from "next/font/google";
 import { TabBar } from "@/components/TabBar";
 import { Providers } from "./providers";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+// 見出し・本文ともSource Serif 4。日本語はglobals.cssのフォールバックで
+// システムの明朝(ヒラギノ明朝 / 游明朝)に落ちる。
+const sourceSerif = Source_Serif_4({
+  variable: "--font-source-serif",
   subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -37,20 +35,15 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   viewportFit: "cover",
-  themeColor: "#f97316",
+  themeColor: "#f3f2f2",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html
-      lang="ja"
-      data-theme="light"
-      data-astryx-theme="neutral"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-    >
-      <body className="min-h-full flex flex-col text-[15px]">
+    <html lang="ja" className={`${sourceSerif.variable} h-full`}>
+      <body className="flex min-h-full flex-col bg-bg text-text antialiased">
         <Providers>
-          <main className="flex flex-1 flex-col pb-20">{children}</main>
+          <main className="flex flex-1 flex-col">{children}</main>
           <TabBar />
         </Providers>
       </body>

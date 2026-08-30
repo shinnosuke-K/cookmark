@@ -1,34 +1,267 @@
 /*
- * レイヤー順を明示的に宣言してからそれぞれをインポートする。これが無いと
- * Tailwindの`base`(preflight)レイヤーがAstryxコンポーネントのCSS
- * (`astryx-base`レイヤー)より後に評価され、ボタンなどの背景色が
- * transparentに巻き戻ってしまう。Astryx公式のTailwind統合手順
- * (`astryx docs styling`)に準拠。
+ * Broadsheet(新聞紙面風)デザイン。
+ * 罫線・カードで区切らず、セリフ書体の級数差と余白だけで階層を作る。
+ * トークンはデザインハンドオフ(README + モックのCSS実測値)に準拠。
  */
-@layer reset, theme, base, astryx-base, astryx-theme, components, utilities;
+@import "tailwindcss";
 
-@import "tailwindcss/theme.css" layer(theme);
-@import "tailwindcss/preflight.css" layer(base);
-@import "@astryxdesign/core/reset.css";
-@import "@astryxdesign/core/astryx.css";
-@import "@astryxdesign/theme-neutral/theme.css";
-@import "@astryxdesign/core/tailwind-theme.css";
-@import "tailwindcss/utilities.css" layer(utilities);
+@theme {
+  /* 地・文字 */
+  --color-bg: #f3f2f2;
+  --color-surface: #eae9e9;
+  --color-text: #201e1d;
+  --color-border: #cac9c8; /* 入力欄の枠 */
+  --color-divider: #d1d0d0; /* タブバー上端・セカンダリボタン枠・セグメント枠 */
+
+  /* アクセント1: シアン(インタラクティブ要素) */
+  --color-accent: #0088b0;
+  --color-accent-700: #006786;
+  --color-accent-100: #e0f1f5;
+
+  /* アクセント2: マゼンタ(「リピート確定」と削除系のみ) */
+  --color-accent-2: #d6006c;
+  --color-accent-2-100: #fff1f4;
+  --color-accent-2-600: #d82071;
+  --color-accent-2-700: #aa0b56;
+  --color-accent-2-800: #790e3d;
+
+  --color-neutral-200: #eae9e9;
+  --color-neutral-300: #d7d3d3;
+  --color-neutral-400: #bcb8b8;
+  --color-neutral-500: #9d9898;
+  --color-neutral-700: #5c5959;
+  --color-neutral-800: #403d3d;
+  --color-neutral-900: #2d2b2b;
+
+  /* 見出しも本文もSource Serif 4。日本語はシステムの明朝へフォールバックする */
+  --font-serif:
+    var(--font-source-serif), "Hiragino Mincho ProN", "Yu Mincho", YuMincho,
+    serif;
+
+  /* モック実測: 角丸はごく浅い。ピル(9999px)はボタン・バッジのみ */
+  --radius-md: 2px;
+  --radius-lg: 3px;
+
+  --shadow-sm: 0 1px 2px rgba(32, 30, 29, 0.12);
+  --shadow-md: 0 4px 14px rgba(32, 30, 29, 0.14);
+  --shadow-lg: 0 -6px 28px rgba(32, 30, 29, 0.16);
+  --shadow-pill: 0 8px 24px rgba(32, 30, 29, 0.22);
+}
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* タブバーの実高。フローティングピルとスクロール余白の基準にする */
+  --tabbar-h: calc(56px + max(30px, env(safe-area-inset-bottom, 0px)));
+  --screen-pt: calc(env(safe-area-inset-top, 0px) + 26px);
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background: var(--color-bg);
+    color: var(--color-text);
+    font-family: var(--font-serif);
+    font-size: 15px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  ::placeholder {
+    color: color-mix(in srgb, var(--color-text) 38%, transparent);
+  }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+@layer components {
+  /* 画面の枠。左右22px、上端はステータスバー分を足す */
+  .ck-screen {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    padding: var(--screen-pt) 22px 0;
+  }
+
+  .ck-title {
+    font-weight: 600;
+    font-size: 26px;
+    letter-spacing: -0.015em;
+    line-height: 1.2;
+  }
+
+  .ck-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border-radius: var(--radius-md);
+    padding-inline: 16px;
+    font-family: inherit;
+    font-weight: 600;
+    line-height: 1.2;
+    cursor: pointer;
+    transition:
+      background-color 0.15s ease,
+      color 0.15s ease,
+      border-color 0.15s ease;
+  }
+
+  .ck-btn:disabled {
+    opacity: 0.55;
+    cursor: default;
+  }
+
+  .ck-btn-primary {
+    background: var(--color-accent);
+    color: var(--color-bg);
+  }
+
+  .ck-btn-primary:not(:disabled):active {
+    background: var(--color-accent-700);
+  }
+
+  .ck-btn-secondary {
+    background: var(--color-bg);
+    color: var(--color-text);
+    border: 1px solid var(--color-divider);
+  }
+
+  .ck-btn-secondary:not(:disabled):active {
+    background: var(--color-surface);
+  }
+
+  .ck-btn-ghost {
+    background: transparent;
+    color: var(--color-accent);
+    font-weight: 400;
+  }
+
+  .ck-btn-danger {
+    background: var(--color-accent-2-600);
+    color: #fff;
+  }
+
+  .ck-input {
+    width: 100%;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: 8px 12px;
+    color: var(--color-text);
+    font-family: inherit;
+    font-size: 15px;
+    line-height: 1.4;
+  }
+
+  .ck-input:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: -1px;
+  }
+
+  .ck-label {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 14px;
+    color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  }
+
+  /* カテゴリタグ・評価バッジ共通の下地。ピルにするものは ck-pill を足す */
+  .ck-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    border-radius: 2px;
+    font-family: inherit;
+    font-size: 14px;
+    line-height: 1.35;
+    white-space: nowrap;
+  }
+
+  .ck-pill {
+    border-radius: 99px;
+  }
+
+  /*
+   * カテゴリチップ。モックの塗りは高さ約31pxだが、タップターゲット44px以上の
+   * 既存方針を守るため、見た目を変えずに擬似要素で上下に当たり判定を広げる。
+   */
+  .ck-chip {
+    position: relative;
+    cursor: pointer;
+  }
+
+  .ck-chip::after {
+    content: "";
+    position: absolute;
+    inset: -7px 0;
+  }
+
+  /* 斜線のプレースホルダ(写真未登録のサムネイル) */
+  .ck-placeholder {
+    background: repeating-linear-gradient(
+      45deg,
+      #d7d3d3 0 6px,
+      #e2dede 6px 12px
+    );
+  }
+
+  .ck-meta {
+    font-size: 14px;
+    color: rgba(32, 30, 29, 0.55);
+  }
+}
+
+@keyframes ck-slide-up {
+  from {
+    transform: translateY(40px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes ck-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes ck-toast {
+  from {
+    transform: translateY(-12px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [class*="animate-ck"],
+  .ck-anim-sheet,
+  .ck-anim-fade,
+  .ck-anim-toast {
+    animation: none !important;
+  }
+}
+
+.ck-anim-sheet {
+  animation: ck-slide-up 0.25s ease;
+}
+
+.ck-anim-fade {
+  animation: ck-fade 0.2s ease;
+}
+
+.ck-anim-dialog {
+  animation: ck-fade 0.15s ease;
+}
+
+.ck-anim-toast {
+  animation: ck-toast 0.2s ease;
 }
