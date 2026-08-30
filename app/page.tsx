@@ -1,7 +1,7 @@
 "use client";
 
 import { ForkKnife } from "@phosphor-icons/react/dist/csr/ForkKnife";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AddRecipeForm, type AddRecipeFormInitial } from "@/components/AddRecipeForm";
 import { PasteBanner } from "@/components/PasteBanner";
 import { RecipeCard } from "@/components/RecipeCard";
@@ -30,6 +30,21 @@ export default function Home() {
 
   const [formOpen, setFormOpen] = useState(false);
   const [formInitial, setFormInitial] = useState<AddRecipeFormInitial>(EMPTY_FORM);
+  // 直前に追加確定した投稿のshortcode。クリップボードに同じURLが残ったまま
+  // 「貼り付けて追加」を連打すると、そのままでは今しがた追加した内容が再び
+  // 流し込まれて「入力が残っている」ように見えてしまうため、一致する間は
+  // 空のフォームを開く(手動入力にフォールバックする)。
+  const lastAddedShortcodeRef = useRef<string | null>(null);
+
+  function handleOpenForm(initial: AddRecipeFormInitial) {
+    const parsed = parseInstagramUrl(initial.url);
+    if (parsed && parsed.shortcode === lastAddedShortcodeRef.current) {
+      setFormInitial(EMPTY_FORM);
+    } else {
+      setFormInitial(initial);
+    }
+    setFormOpen(true);
+  }
 
   // Android share_target受け: ?url= / ?text= / ?title= があれば追加フォームを
   // 開いて流し込み、URLバーからクエリを消す。マウント時に一度だけ実行する。
@@ -157,12 +172,7 @@ export default function Home() {
         )}
       </div>
 
-      <PasteBanner
-        onOpen={(initial) => {
-          setFormInitial(initial);
-          setFormOpen(true);
-        }}
-      />
+      <PasteBanner onOpen={handleOpenForm} />
 
       {formOpen && (
         <AddRecipeForm
@@ -170,6 +180,9 @@ export default function Home() {
           memberId={member.id}
           initial={formInitial}
           onClose={() => setFormOpen(false)}
+          onAdded={(shortcode) => {
+            lastAddedShortcodeRef.current = shortcode;
+          }}
         />
       )}
     </>

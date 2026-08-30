@@ -33,6 +33,10 @@ interface AddRecipeFormProps {
   memberId: string;
   initial: AddRecipeFormInitial;
   onClose: () => void;
+  /** 追加確定時に呼ばれる(URLがInstagram投稿として解析できていればそのshortcode、
+   *  できていなければnull)。呼び出し元が「直前に追加したのと同じ投稿の再流し込みを
+   *  防ぐ」用途に使う。 */
+  onAdded?: (shortcode: string | null) => void;
 }
 
 /**
@@ -44,6 +48,7 @@ export function AddRecipeForm({
   memberId,
   initial,
   onClose,
+  onAdded,
 }: AddRecipeFormProps) {
   const toast = useToast();
   const [url, setUrl] = useState(initial.url);
@@ -63,13 +68,30 @@ export function AddRecipeForm({
   // 直近に取得済み(または取得中)のshortcode。同じshortcodeへの再取得や、
   // 後から来た古いリクエストのレスポンスで新しい入力を上書きしてしまうのを防ぐ。
   const lastFetchedShortcodeRef = useRef<string | null>(null);
+  // タイトル・投稿者ハンドルについて「直近に自動入力した値」。ユーザーがこの値から
+  // 手で書き換えていない(=フィールドの現在値がこの値と一致している)間だけ、次の
+  // 自動取得結果で上書きしてよいと判断する。手で編集した時点でユーザー所有になり、
+  // 以降どのfetchが完了しても上書きしない。
+  const autoFilledTitleRef = useRef<string | null>(null);
+  const autoFilledAuthorHandleRef = useRef<string | null>(null);
 
   const applyOgData = useCallback((data: OgData) => {
     ogDataRef.current = data;
-    setTitle((prev) => (prev.trim() === "" ? data.title : prev));
+    setTitle((prev) => {
+      const ownedByUser = prev.trim() !== "" && prev !== autoFilledTitleRef.current;
+      if (ownedByUser) return prev;
+      autoFilledTitleRef.current = data.title;
+      return data.title;
+    });
     const handle = data.authorHandle;
     if (handle) {
-      setAuthorHandle((prev) => (prev.trim() === "" ? handle : prev));
+      setAuthorHandle((prev) => {
+        const ownedByUser =
+          prev.trim() !== "" && prev !== autoFilledAuthorHandleRef.current;
+        if (ownedByUser) return prev;
+        autoFilledAuthorHandleRef.current = handle;
+        return handle;
+      });
     }
   }, []);
 
@@ -95,18 +117,32 @@ export function AddRecipeForm({
   // 別のURLに変わった場合に古いレスポンスが新しい入力を上書きしないようにする。
   useEffect(() => {
     const parsed = parseInstagramUrl(url);
-    if (!parsed || parsed.shortcode === lastFetchedShortcodeRef.current) return;
+    const shortcode = parsed?.shortcode ?? null;
 
+    // URLが変わってshortcodeが変化した(または解析できなくなった)場合、古い
+    // shortcode向けに取得したOGデータ(キャプション・画像URL)を追加確定時に
+    // 使い回してしまわないよう、ここで即座に破棄する。
+    if (shortcode !== lastFetchedShortcodeRef.current) {
+      lastFetchedShortcodeRef.current = null;
+      ogDataRef.current = null;
+    }
+
+    if (!parsed || shortcode === lastFetchedShortcodeRef.current) return;
+    const targetShortcode = parsed.shortcode;
+
+    let cancelled = false;
     const timer = setTimeout(() => {
-      const shortcode = parsed.shortcode;
-      lastFetchedShortcodeRef.current = shortcode;
-      fetchOgData(shortcode).then((data) => {
-        if (!data || lastFetchedShortcodeRef.current !== shortcode) return;
+      lastFetchedShortcodeRef.current = targetShortcode;
+      fetchOgData(targetShortcode).then((data) => {
+        if (cancelled || !data || lastFetchedShortcodeRef.current !== targetShortcode) return;
         applyOgData(data);
       });
     }, 600);
 
-    return () => clearTimeout(timer);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
   }, [url, applyOgData]);
 
   // 追加確定後、自動取得した画像があればダウンロード→圧縮アップロード→photo_path更新まで
@@ -160,6 +196,7 @@ export function AddRecipeForm({
         onSuccess: (recipe) => {
           toast("レシピを追加しました");
           onClose();
+          onAdded?.(parsed?.shortcode ?? null);
           if (ogData?.imageUrl) {
             void attachOgPhoto(recipe, ogData.imageUrl);
           }
