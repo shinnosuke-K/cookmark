@@ -144,6 +144,10 @@ export interface Database {
         Args: { target_board_id: string };
         Returns: boolean;
       };
+      rotate_invite_token: {
+        Args: Record<string, never>;
+        Returns: string;
+      };
     };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;

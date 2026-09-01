@@ -3,9 +3,11 @@
 import { Check } from "@phosphor-icons/react/dist/csr/Check";
 import { Copy } from "@phosphor-icons/react/dist/csr/Copy";
 import { Link as LinkIcon } from "@phosphor-icons/react/dist/csr/Link";
+import { ArrowsClockwise } from "@phosphor-icons/react/dist/csr/ArrowsClockwise";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { useToast } from "@/components/Toast";
-import { useBoard, useMyMember } from "@/lib/board";
+import { useBoard, useMyMember, useRotateInviteToken } from "@/lib/board";
 
 const COPIED_RESET_MS = 2400;
 
@@ -13,7 +15,9 @@ export default function SettingsPage() {
   const toast = useToast();
   const { data: member, isLoading: memberLoading } = useMyMember();
   const { data: board, isLoading: boardLoading } = useBoard(member?.board_id);
+  const rotateInviteToken = useRotateInviteToken(board?.id);
   const [copied, setCopied] = useState(false);
+  const [rotateConfirmOpen, setRotateConfirmOpen] = useState(false);
   const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(
@@ -39,6 +43,20 @@ export default function SettingsPage() {
     } catch {
       toast("コピーに失敗しました。長押しで手動コピーしてください");
     }
+  }
+
+  function handleRotate() {
+    if (!board) return;
+    rotateInviteToken.mutate(undefined, {
+      onSuccess: () => {
+        setRotateConfirmOpen(false);
+        toast("招待URLを再発行しました");
+      },
+      onError: () => {
+        setRotateConfirmOpen(false);
+        toast("再発行に失敗しました。もう一度お試しください");
+      },
+    });
   }
 
   if (memberLoading || boardLoading) {
@@ -101,7 +119,28 @@ export default function SettingsPage() {
             {copied ? "コピー済み" : "コピー"}
           </button>
         </div>
+        <button
+          type="button"
+          onClick={() => setRotateConfirmOpen(true)}
+          disabled={rotateInviteToken.isPending}
+          className="ck-btn ck-btn-ghost mt-2.5 min-h-11 text-[14px]"
+          style={{ color: "var(--color-accent-2-700)" }}
+        >
+          <ArrowsClockwise size={16} weight="duotone" />
+          招待URLを再発行
+        </button>
       </div>
+
+      {rotateConfirmOpen && (
+        <ConfirmDialog
+          title="招待URLを再発行しますか?"
+          body="今の招待URLは使えなくなります。再発行しますか?"
+          confirmLabel="再発行する"
+          isPending={rotateInviteToken.isPending}
+          onConfirm={handleRotate}
+          onCancel={() => setRotateConfirmOpen(false)}
+        />
+      )}
     </div>
   );
 }

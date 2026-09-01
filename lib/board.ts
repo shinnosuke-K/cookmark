@@ -92,3 +92,22 @@ export function useJoinBoard() {
     },
   });
 }
+
+/** 現在のinvite_tokenを無効化し、新しいトークンを発行する。新しいトークンを返す。 */
+export async function rotateInviteToken(): Promise<string> {
+  const { data, error } = await supabase.rpc("rotate_invite_token");
+  if (error) throw error;
+  return data;
+}
+
+export function useRotateInviteToken(boardId: string | undefined) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: rotateInviteToken,
+    onSuccess: (newToken) => {
+      queryClient.setQueryData(["board", boardId], (old: Board | null | undefined) =>
+        old ? { ...old, invite_token: newToken } : old,
+      );
+    },
+  });
+}
