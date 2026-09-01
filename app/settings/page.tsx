@@ -50,6 +50,8 @@ export default function SettingsPage() {
     rotateInviteToken.mutate(undefined, {
       onSuccess: () => {
         setRotateConfirmOpen(false);
+        // 旧URLをコピー済みでも新URLはクリップボードにないため表示をリセットする
+        setCopied(false);
         toast("招待URLを再発行しました");
       },
       onError: () => {
