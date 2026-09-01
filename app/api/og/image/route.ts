@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { INSTAGRAM_EMBED_USER_AGENT, isAllowedImageUrl } from "@/lib/instagram-embed";
+import { forbidden, isSameOriginRequest } from "../same-origin";
 
 // /api/og が返す画像URL(Instagram CDN)をブラウザから直接叩けない場合の中継プロキシ。
 // 任意のURLを中継するとSSRFになるため、httpsかつInstagram/FacebookのCDNドメインのみ許可する。
@@ -26,6 +27,8 @@ function unavailable() {
 }
 
 export async function GET(request: NextRequest) {
+  if (!isSameOriginRequest(request)) return forbidden();
+
   const url = request.nextUrl.searchParams.get("url");
   if (!url || !isAllowedImageUrl(url)) {
     return badRequest();

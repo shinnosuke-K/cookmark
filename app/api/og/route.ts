@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { INSTAGRAM_EMBED_USER_AGENT, parseEmbedHtml } from "@/lib/instagram-embed";
+import { forbidden, isSameOriginRequest } from "./same-origin";
 
 // Instagram投稿のタイトル・キャプション・投稿者・画像URLをベストエフォートで取得する
 // プロキシ。Meta公式oEmbed APIは使わない方針のため、ログイン不要で開ける
@@ -18,6 +19,8 @@ function unavailable() {
 }
 
 export async function GET(request: NextRequest) {
+  if (!isSameOriginRequest(request)) return forbidden();
+
   const shortcode = request.nextUrl.searchParams.get("shortcode");
   if (!shortcode || !SHORTCODE_PATTERN.test(shortcode)) {
     return NextResponse.json(
