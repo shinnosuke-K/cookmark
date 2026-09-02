@@ -2,8 +2,10 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CategoryChips } from "./CategoryChips";
+import { IngredientInput } from "./IngredientInput";
 import { Sheet } from "./Sheet";
 import { useToast } from "./Toast";
+import { joinIngredients } from "@/lib/ingredients";
 import { fetchOgData, parseInstagramUrl, type OgData } from "@/lib/instagram";
 import { uploadRecipePhoto } from "@/lib/photos";
 import { useAddRecipe, useUpdateRecipe, type Recipe } from "@/lib/recipes";
@@ -57,6 +59,7 @@ export function AddRecipeForm({
   const [category, setCategory] = useState<RecipeCategory | null>(
     initial.category,
   );
+  const [ingredients, setIngredients] = useState<string[]>([]);
   const addRecipe = useAddRecipe();
   const updateRecipe = useUpdateRecipe();
 
@@ -190,6 +193,7 @@ export function AddRecipeForm({
         category,
         instagramUrl: parsed?.cleanUrl ?? null,
         postShortcode: parsed?.shortcode ?? null,
+        ingredients: joinIngredients(ingredients),
         memo: ogData?.caption
           ? truncateToCodePoints(ogData.caption, OG_CAPTION_MAX_LENGTH)
           : null,
@@ -256,6 +260,18 @@ export function AddRecipeForm({
             label="カテゴリ"
             value={category}
             onChange={setCategory}
+          />
+        </div>
+
+        <div>
+          <label className="ck-label" htmlFor="add-ingredients">
+            食材(任意)
+          </label>
+          <IngredientInput
+            boardId={boardId}
+            value={ingredients}
+            onChange={setIngredients}
+            inputId="add-ingredients"
           />
         </div>
 

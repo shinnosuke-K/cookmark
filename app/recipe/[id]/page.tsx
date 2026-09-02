@@ -10,12 +10,14 @@ import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
 import { CategoryChips } from "@/components/CategoryChips";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { IngredientInput } from "@/components/IngredientInput";
 import { InstagramEmbed } from "@/components/InstagramEmbed";
 import { StatusBadge, VERDICT_STYLE, verdictChipStyle } from "@/components/VerdictBadge";
 import { useToast } from "@/components/Toast";
 import { useBoardMembers } from "@/lib/recipes";
 import { useMyMember } from "@/lib/board";
 import type { RecipeCategory, RecipeVerdict } from "@/lib/database.types";
+import { joinIngredients, splitIngredients } from "@/lib/ingredients";
 import {
   useCookAgain,
   useDeleteRecipe,
@@ -36,6 +38,7 @@ export default function RecipeDetailPage() {
 
   const [title, setTitle] = useState("");
   const [memo, setMemo] = useState("");
+  const [ingredients, setIngredients] = useState<string[]>([]);
   const [category, setCategory] = useState<RecipeCategory | null>(null);
   const [verdict, setVerdict] = useState<RecipeVerdict | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -48,6 +51,7 @@ export default function RecipeDetailPage() {
     id: string;
     title: string;
     memo: string;
+    ingredients: string;
     category: RecipeCategory | null;
     verdict: RecipeVerdict | null;
   } | null>(null);
@@ -58,6 +62,7 @@ export default function RecipeDetailPage() {
       (!dirty &&
         (recipe.title !== seeded.title ||
           (recipe.memo ?? "") !== seeded.memo ||
+          (recipe.ingredients ?? "") !== seeded.ingredients ||
           recipe.category !== seeded.category ||
           recipe.verdict !== seeded.verdict)));
   if (needsReseed && recipe) {
@@ -65,11 +70,13 @@ export default function RecipeDetailPage() {
       id: recipe.id,
       title: recipe.title,
       memo: recipe.memo ?? "",
+      ingredients: recipe.ingredients ?? "",
       category: recipe.category,
       verdict: recipe.verdict,
     });
     setTitle(recipe.title);
     setMemo(recipe.memo ?? "");
+    setIngredients(splitIngredients(recipe.ingredients));
     setCategory(recipe.category);
     setVerdict(recipe.verdict);
     setDirty(false);
@@ -89,6 +96,7 @@ export default function RecipeDetailPage() {
         boardId: recipe.board_id,
         title: trimmedTitle,
         memo: memo.trim() || null,
+        ingredients: joinIngredients(ingredients),
         category,
         ...(recipe.status === "cooked" ? { verdict } : {}),
       },
@@ -282,6 +290,21 @@ export default function RecipeDetailPage() {
             </div>
           </div>
         )}
+
+        <div>
+          <label className="ck-label" htmlFor="detail-ingredients">
+            食材
+          </label>
+          <IngredientInput
+            boardId={recipe.board_id}
+            value={ingredients}
+            onChange={(next) => {
+              setIngredients(next);
+              setDirty(true);
+            }}
+            inputId="detail-ingredients"
+          />
+        </div>
 
         <div>
           <label className="ck-label" htmlFor="detail-memo">

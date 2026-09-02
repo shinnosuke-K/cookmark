@@ -195,6 +195,15 @@
     inset: -7px 0;
   }
 
+  /*
+   * 食材チップのように削除を伴い、折り返して複数行に並ぶチップ用。チップ自体を
+   * 33pxにして拡張を上下6pxに留め(行間12px)、隣の行と当たり判定が重ならないまま
+   * 44pxを満たす。誤タップで意図しないチップを消さないための調整。
+   */
+  .ck-chip.ck-chip-tight::after {
+    inset: -6px 0;
+  }
+
   /* 斜線のプレースホルダ(写真未登録のサムネイル) */
   .ck-placeholder {
     background: repeating-linear-gradient(
