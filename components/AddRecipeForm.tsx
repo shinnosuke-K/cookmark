@@ -213,6 +213,9 @@ export function AddRecipeForm({
   }
 
   function handleEnter(e: React.KeyboardEvent<HTMLInputElement>) {
+    // 日本語入力の変換確定のEnter(keyCode 229 は互換用)で送信してしまわない。
+    // タイトルは日本語で入力されるのが前提のため、ここは必須のガード。
+    if (e.nativeEvent.isComposing || e.keyCode === 229) return;
     if (e.key === "Enter") {
       e.preventDefault();
       handleSubmit();

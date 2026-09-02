@@ -226,7 +226,9 @@ export default function Home() {
           />
         </div>
 
-        <div className="mb-5 flex flex-wrap items-center gap-2">
+        {/* チップは疑似要素で上下7pxずつ当たり判定を広げているため、折り返した
+            行どうしが重ならないよう行間を16px(7+7より広く)取る */}
+        <div className="mb-5 flex flex-wrap items-center gap-x-2 gap-y-4">
           <CategoryChips
             label="カテゴリで絞り込み"
             value={category}

@@ -1,10 +1,11 @@
 "use client";
 
 import { XCircle } from "@phosphor-icons/react/dist/csr/XCircle";
-import { useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
   frequentIngredients,
   normalizeIngredients,
+  splitIngredients,
 } from "@/lib/ingredients";
 import { useBoardIngredients } from "@/lib/recipes";
 
@@ -29,31 +30,57 @@ export function IngredientInput({
   inputId,
 }: IngredientInputProps) {
   const [draft, setDraft] = useState("");
+  // 日本語入力の変換中かどうか。変換中のEnterは「変換の確定」であって
+  // チップの確定ではないため、ここで見分ける。
+  const composingRef = useRef(false);
   const { data: allIngredients } = useBoardIngredients(boardId);
-  const suggestions = frequentIngredients(allIngredients ?? [], value);
+  const suggestions = useMemo(
+    () => frequentIngredients(allIngredients ?? [], value),
+    [allIngredients, value],
+  );
 
-  function commit(token: string) {
-    const trimmed = token.trim();
+  /** チップを足す。区切り文字を含んだ貼り付けは複数チップに割る(保存後の表示と揃える)。 */
+  function addTokens(raw: string) {
+    const tokens = splitIngredients(raw);
+    if (tokens.length === 0) return;
+    onChange(normalizeIngredients([...value, ...tokens]));
+  }
+
+  /** 入力中の文字列を確定してチップにする(入力欄は空に戻す)。 */
+  function commitDraft(text: string) {
     setDraft("");
-    if (!trimmed || value.includes(trimmed)) return;
-    onChange(normalizeIngredients([...value, trimmed]));
+    addTokens(text);
+  }
+
+  /** 末尾が区切り文字なら確定する。確定したらtrueを返す。 */
+  function commitOnSeparator(next: string): boolean {
+    const match = next.match(/^(.*)[,、]$/);
+    if (!match) return false;
+    commitDraft(match[1]);
+    return true;
   }
 
   function handleDraftChange(next: string) {
     // IME確定と同時に区切り文字が入るケースも拾えるよう、キーではなく入力値の
-    // 末尾で判定する(「、」はスマホの日本語キーボードで打ちやすい)。
-    const match = next.match(/^(.*)[,、]$/);
-    if (match) {
-      commit(match[1]);
+    // 末尾で判定する(「、」はスマホの日本語キーボードで打ちやすい)。ただし
+    // 変換中の未確定文字列に含まれる「、」で切ってしまわないよう、変換が
+    // 終わるまでは判定しない(compositionendで改めて見る)。
+    if (composingRef.current) {
+      setDraft(next);
       return;
     }
+    if (commitOnSeparator(next)) return;
     setDraft(next);
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    // 変換確定のEnter(keyCode 229 は古いブラウザ・一部IMEの互換用)は無視する。
+    // ここを通すと未変換のかながそのままチップになり、変換もろとも失われる。
+    if (e.nativeEvent.isComposing || e.keyCode === 229) return;
+
     if (e.key === "Enter") {
       e.preventDefault();
-      commit(draft);
+      commitDraft(draft);
     } else if (e.key === "Backspace" && !draft && value.length > 0) {
       onChange(value.slice(0, -1));
     }
@@ -84,7 +111,16 @@ export function IngredientInput({
           value={draft}
           onChange={(e) => handleDraftChange(e.target.value)}
           onKeyDown={handleKeyDown}
-          onBlur={() => commit(draft)}
+          onCompositionStart={() => {
+            composingRef.current = true;
+          }}
+          onCompositionEnd={(e) => {
+            composingRef.current = false;
+            // 変換確定後の文字列を改めて見る。ブラウザによってcompositionendと
+            // 最後のchangeの順序が違うため、両方で同じ判定を通す。
+            commitOnSeparator(e.currentTarget.value);
+          }}
+          onBlur={() => commitDraft(draft)}
           placeholder={value.length > 0 ? "追加" : "食材名を入力(Enterで確定)"}
         />
       </div>
@@ -96,7 +132,11 @@ export function IngredientInput({
             <button
               key={item}
               type="button"
-              onClick={() => commit(item)}
+              // 入力途中で候補をタップしたとき、blurでの確定→候補列の組み替えが
+              // タップの途中で起きて別の候補に化けるのを防ぐ(blurさせない)。
+              // 入力中の文字列はそのまま残す。
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => addTokens(item)}
               className="ck-tag ck-chip ck-chip-tight px-2.5 py-[7px]"
               style={{
                 border: "1px solid var(--color-neutral-500)",
