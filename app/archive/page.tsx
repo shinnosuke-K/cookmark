@@ -28,7 +28,8 @@ export default function ArchivePage() {
       if (repeatOnly && recipe.verdict !== "repeat") return false;
       if (category && recipe.category !== category) return false;
       if (kw) {
-        const haystack = `${recipe.title} ${recipe.memo ?? ""}`.toLowerCase();
+        const haystack =
+          `${recipe.title} ${recipe.ingredients ?? ""} ${recipe.memo ?? ""}`.toLowerCase();
         if (!haystack.includes(kw)) return false;
       }
       return true;
@@ -102,8 +103,8 @@ export default function ArchivePage() {
           className="ck-input min-h-11 pl-[34px]"
           value={keyword}
           onChange={(e) => setKeyword(e.target.value)}
-          placeholder="タイトル・メモで検索"
-          aria-label="タイトル・メモで検索"
+          placeholder="タイトル・食材・メモで検索"
+          aria-label="タイトル・食材・メモで検索"
           type="search"
         />
       </div>

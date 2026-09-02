@@ -1,5 +1,6 @@
 "use client";
 
+import { Carrot } from "@phosphor-icons/react/dist/csr/Carrot";
 import Link from "next/link";
 import { useState } from "react";
 import { CategoryTag } from "./CategoryChips";
@@ -10,6 +11,8 @@ import type { Recipe } from "@/lib/recipes";
 interface RecipeCardProps {
   recipe: Recipe;
   adderName: string | undefined;
+  /** グループ表示中は見出しと重複するため `@handle ・ 夫が追加` を出さない。 */
+  hideSubtitle?: boolean;
 }
 
 /**
@@ -17,7 +20,11 @@ interface RecipeCardProps {
  * 行全体のタップで詳細へ(リンクを疑似要素で行いっぱいに広げる)、
  * 右端の「作った!」だけはその上に重ねてボトムシートを開く。
  */
-export function RecipeCard({ recipe, adderName }: RecipeCardProps) {
+export function RecipeCard({
+  recipe,
+  adderName,
+  hideSubtitle = false,
+}: RecipeCardProps) {
   const [sheetOpen, setSheetOpen] = useState(false);
 
   const subtitle = [
@@ -38,8 +45,14 @@ export function RecipeCard({ recipe, adderName }: RecipeCardProps) {
         >
           {recipe.title}
         </Link>
-        {subtitle && (
+        {!hideSubtitle && subtitle && (
           <span className="ck-meta w-full truncate">{subtitle}</span>
+        )}
+        {recipe.ingredients && (
+          <span className="flex w-full items-center gap-[3px] truncate text-[14px] text-[rgba(32,30,29,.45)]">
+            <Carrot size={14} weight="duotone" className="flex-none" />
+            <span className="truncate">{recipe.ingredients}</span>
+          </span>
         )}
         {recipe.category && <CategoryTag category={recipe.category} />}
       </div>
