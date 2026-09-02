@@ -17,6 +17,9 @@ export const boardMembersQueryKey = (boardId: string | undefined) =>
 export const recipeQueryKey = (id: string | undefined) =>
   ["recipe", id] as const;
 
+export const boardIngredientsQueryKey = (boardId: string | undefined) =>
+  ["recipes", "ingredients", boardId] as const;
+
 /** ボードの全メンバー(追加者名の表示用)。 */
 export async function getBoardMembers(boardId: string): Promise<Member[]> {
   const { data, error } = await supabase
@@ -79,6 +82,27 @@ export function useArchiveRecipes(boardId: string | undefined) {
   });
 }
 
+/** ボード内の全レシピの食材(「よく使う:」候補チップの集計用)。 */
+export async function getBoardIngredients(
+  boardId: string,
+): Promise<(string | null)[]> {
+  const { data, error } = await supabase
+    .from("recipes")
+    .select("ingredients")
+    .eq("board_id", boardId);
+
+  if (error) throw error;
+  return data.map((row) => row.ingredients);
+}
+
+export function useBoardIngredients(boardId: string | undefined) {
+  return useQuery({
+    queryKey: boardIngredientsQueryKey(boardId),
+    queryFn: () => getBoardIngredients(boardId as string),
+    enabled: !!boardId,
+  });
+}
+
 /** レシピ1件を取得する(詳細画面用)。見つからなければnull。 */
 export async function getRecipe(id: string): Promise<Recipe | null> {
   const { data, error } = await supabase
@@ -107,6 +131,8 @@ export interface AddRecipeInput {
   category: RecipeCategory | null;
   instagramUrl: string | null;
   postShortcode: string | null;
+  /** 食材のカンマ区切り文字列。未入力ならnull。 */
+  ingredients?: string | null;
   /** Instagram自動取得(ベストエフォート)のキャプションを添えて登録する場合のみ指定する。 */
   memo?: string | null;
 }
@@ -122,6 +148,7 @@ export async function addRecipe(input: AddRecipeInput): Promise<Recipe> {
       category: input.category,
       instagram_url: input.instagramUrl,
       post_shortcode: input.postShortcode,
+      ingredients: input.ingredients ?? null,
       memo: input.memo ?? null,
       status: "todo",
     })
@@ -139,6 +166,9 @@ export function useAddRecipe() {
     onSuccess: (recipe) => {
       queryClient.invalidateQueries({
         queryKey: todoRecipesQueryKey(recipe.board_id),
+      });
+      queryClient.invalidateQueries({
+        queryKey: boardIngredientsQueryKey(recipe.board_id),
       });
     },
   });
@@ -220,6 +250,8 @@ export interface UpdateRecipeInput {
    *  他編集を上書きしないようにする用途)。 */
   title?: string;
   memo?: string | null;
+  /** 食材のカンマ区切り文字列。nullで未登録に戻す。undefinedなら変更しない。 */
+  ingredients?: string | null;
   category?: RecipeCategory | null;
   /** 写真を差し替えた場合のみ指定する。undefinedなら既存の写真を保持する。 */
   photoPath?: string;
@@ -227,11 +259,12 @@ export interface UpdateRecipeInput {
   verdict?: RecipeVerdict | null;
 }
 
-/** 詳細画面での編集(タイトル・メモ・カテゴリ・評価・写真)、または部分更新を保存する。 */
+/** 詳細画面での編集(タイトル・メモ・食材・カテゴリ・評価・写真)、または部分更新を保存する。 */
 export async function updateRecipe({
   id,
   title,
   memo,
+  ingredients,
   category,
   photoPath,
   verdict,
@@ -239,6 +272,7 @@ export async function updateRecipe({
   const update: Database["public"]["Tables"]["recipes"]["Update"] = {};
   if (title !== undefined) update.title = title;
   if (memo !== undefined) update.memo = memo;
+  if (ingredients !== undefined) update.ingredients = ingredients;
   if (category !== undefined) update.category = category;
   if (photoPath !== undefined) update.photo_path = photoPath;
   if (verdict !== undefined) update.verdict = verdict;
@@ -265,6 +299,9 @@ export function useUpdateRecipe() {
       });
       queryClient.invalidateQueries({
         queryKey: archiveRecipesQueryKey(recipe.board_id),
+      });
+      queryClient.invalidateQueries({
+        queryKey: boardIngredientsQueryKey(recipe.board_id),
       });
     },
   });
@@ -323,6 +360,9 @@ export function useDeleteRecipe() {
       });
       queryClient.invalidateQueries({
         queryKey: archiveRecipesQueryKey(variables.boardId),
+      });
+      queryClient.invalidateQueries({
+        queryKey: boardIngredientsQueryKey(variables.boardId),
       });
     },
   });

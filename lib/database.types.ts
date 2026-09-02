@@ -79,6 +79,8 @@ export interface Database {
           verdict: RecipeVerdict | null;
           category: RecipeCategory | null;
           memo: string | null;
+          /** 食材。カンマ区切りの文字列。未登録はnull */
+          ingredients: string | null;
           photo_path: string | null;
           added_by: string;
           cooked_at: string | null;
@@ -96,6 +98,7 @@ export interface Database {
           verdict?: RecipeVerdict | null;
           category?: RecipeCategory | null;
           memo?: string | null;
+          ingredients?: string | null;
           photo_path?: string | null;
           added_by: string;
           cooked_at?: string | null;
@@ -113,6 +116,7 @@ export interface Database {
           verdict?: RecipeVerdict | null;
           category?: RecipeCategory | null;
           memo?: string | null;
+          ingredients?: string | null;
           photo_path?: string | null;
           added_by?: string;
           cooked_at?: string | null;
