@@ -2,28 +2,47 @@
 
 夫婦2人でInstagramのレシピ投稿を共有・管理するPWAです。InstagramのDMでレシピを送り合うだけでは「どれを作ったか/まだ作っていないか」が分からなくなる、という課題を解決します。インスタで見つけたレシピのリンクを貼り付けて追加し、作ったら「リピート確定 / イマイチ」を1タップで記録することで、時間とともに夫婦の定番レシピ集ができあがっていきます。夫婦2人だけの利用を前提とした個人プロジェクトで、一般公開やアカウント登録機能はありません。
 
+## 主な機能
+
+- **貼り付けて追加**: InstagramのURLを貼り付けると、タイトル・投稿者・写真・キャプション(材料表)をベストエフォートで自動取得(`/api/og`)。取得に失敗しても手動入力で必ず追加できます。Androidは共有シートからの直接追加にも対応(share_target)
+- **作った!フロー**: 1タップでボトムシートを開き「リピート確定 / イマイチ」を即答。評価はあとから詳細画面で変更でき、「また作った!」でリピート回数をカウントします
+- **アーカイブ**: リピート確定フィルタ・カテゴリ・フリーワード検索で絞り込み
+- **今夜どうする**: 未挑戦またはリピート確定からランダムに1件提案
+- **設定**: 招待URLの表示・コピー・再発行(漏洩時の無効化)
+
 ## セットアップ
 
 ### 1. Supabaseプロジェクトを作成する
 
-1. [Supabase](https://supabase.com/) で新規プロジェクトを作成する(無料枠でOK)。
-2. プロジェクトの `Settings > API` から `Project URL` と `anon public` キーを控えておく。
+1. [Supabase](https://supabase.com/) で新規プロジェクトを作成する(無料枠でOK、リージョンはTokyo推奨)。
+2. プロジェクトの `Settings > API Keys` から `Project URL` と **Publishable key**(`sb_publishable_…`)を控えておく(旧方式の `anon public` キーでも動作します)。
 
 ### 2. マイグレーションを適用する
 
-`supabase/migrations/0001_init.sql` にテーブル定義・RLSポリシー・`create_board` / `join_board` RPC関数がすべて含まれています。以下のいずれかの方法で適用してください。
+`supabase/migrations/` に全スキーマが番号順に入っています。
 
-- **SQL Editorから直接実行する場合**: SupabaseダッシュボードのSQL Editorを開き、`supabase/migrations/0001_init.sql` の中身を貼り付けて実行する。
-- **Supabase CLIを使う場合**:
+| ファイル | 内容 |
+|---|---|
+| `0001_init.sql` | テーブル・RLSポリシー・`create_board` / `join_board` RPC・photosバケット |
+| `0002_cook_count.sql` | リピート回数カウント用の列 |
+| `0003_revoke_anon_rpc_execute.sql` | 未サインインからのRPC実行権剥奪 |
+| `0004_photos_bucket_limits.sql` | 写真アップロードの5MB・画像のみ制限 |
+| `0005_rotate_invite_token.sql` | 招待URL再発行RPC |
+
+- **Supabase CLIを使う場合(推奨)**:
 
   ```bash
   supabase link --project-ref <プロジェクトref>
   supabase db push
   ```
 
+  ※ `supabase link` には[Personal Access Token](https://supabase.com/dashboard/account/tokens)(`sbp_…`)での `supabase login` が必要です(APIキーとは別物)。
+
+- **SQL Editorから直接実行する場合**: ダッシュボードのSQL Editorで、上記ファイルを番号順にすべて実行する。
+
 ### 3. 匿名認証を有効化する
 
-Supabaseダッシュボードの `Authentication > Sign In / Providers` で **Anonymous Sign-Ins** を有効化してください(デフォルトでは無効になっています)。これを忘れるとアプリ初回起動時のサインインが失敗します。
+Supabaseダッシュボードの `Authentication > Sign In / Providers` で **Anonymous Sign-Ins** を有効化してください(デフォルトでは無効になっています)。これを忘れるとアプリ初回起動時のサインインが失敗します。あわせて **Email プロバイダは無効化**しておくと、使わない入口を閉じられます。
 
 ### 4. 環境変数を設定する
 
@@ -35,8 +54,10 @@ cp .env.example .env.local
 
 ```
 NEXT_PUBLIC_SUPABASE_URL=https://xxxxxxxx.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=xxxxxxxx
+NEXT_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_xxxxxxxx
 ```
+
+URLはパス無しのオリジンだけを指定します(`/rest/v1` などを付けるとアプリが `Invalid path` エラーになります)。
 
 ### 5. ローカルで動かす(クラウドのSupabaseを使う場合)
 
@@ -58,8 +79,7 @@ npm run dev
 
 `http://localhost:3000` を開くとボード作成/参加画面が表示されます。2端末(2ブラウザ)で同じ招待URLから参加すると、同一ボードを共有できているか確認できます。
 
-なお本番ビルド(`npm run build`)は Serwist の InjectManifest 戦略(webpackプラグイン)を使う都合上 `next build --webpack` を実行します(Next.js 16のデフォルトであるTurbopackは現時点でServwistの当該戦略に未対応のため)。`npm run build` にすでに組み込まれているので、意識する必要はありません。
-
+なお開発・本番ビルドとも Serwist の InjectManifest 戦略(webpackプラグイン)を使う都合上 `--webpack` フラグ付きで実行します(Next.js 16のデフォルトであるTurbopackは現時点で当該戦略に未対応のため)。`npm run dev` / `npm run build` にすでに組み込まれているので、意識する必要はありません。
 
 ### 5b. すべてローカルで動かす(Docker + Supabase CLI)
 
@@ -69,9 +89,9 @@ npm run dev
 # Supabaseローカルスタックを起動(初回はイメージ取得で数分かかる)
 supabase start
 
-# 起動ログに表示される ANON_KEY を .env.local に設定
+# 起動ログに表示される PUBLISHABLE_KEY(または ANON_KEY)を .env.local に設定
 # NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
-# NEXT_PUBLIC_SUPABASE_ANON_KEY=<ANON_KEY>
+# NEXT_PUBLIC_SUPABASE_ANON_KEY=<キー>
 
 npm run dev
 ```
@@ -96,9 +116,9 @@ supabase stop
 
 1. GitHubリポジトリをVercelにインポートする。
 2. Vercelプロジェクトの `Settings > Environment Variables` に、手順4と同じ2つの環境変数(`NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY`)を設定する。
-3. デプロイ後、発行されたURL(例: `https://cookmark.vercel.app`)にアクセスしてボードを作成する。
+3. デプロイ後、発行されたURL(例: `https://cookmark-xxxx.vercel.app`)にアクセスしてボードを作成する。
 
-Vercelの無料枠は非商用利用に限られますが、本アプリは私用のため問題ありません。
+Vercelの無料枠は非商用利用に限られますが、本アプリは私用のため問題ありません。以後は `main` へのpushで自動デプロイされます(スキーマ変更を含む場合は `supabase db push` も忘れずに)。
 
 ### 7. GitHub Actions のシークレットを設定する(Supabaseの自動停止対策)
 
@@ -109,20 +129,35 @@ GitHubリポジトリの `Settings > Secrets and variables > Actions` に以下�
 | シークレット名 | 値 |
 |---|---|
 | `SUPABASE_URL` | 手順1で控えた Project URL |
-| `SUPABASE_ANON_KEY` | 手順1で控えた anon public キー |
+| `SUPABASE_ANON_KEY` | 手順1で控えた Publishable key |
 
 設定を忘れるとワークフローが失敗し続けるので、デプロイ後に一度 `Actions` タブから手動実行(`workflow_dispatch`)して成功することを確認してください。
 
+## セキュリティ
+
+コード側で適用済みの対策:
+
+- 全テーブルRLS+ボード操作はsecurity definer RPCに隔離(未サインインからは実行不可)
+- 写真バケットは非公開・5MB上限・画像MIMEのみ。表示は署名付きURL
+- 全ページにセキュリティヘッダー(X-Frame-Options ほか)を付与
+- `/api/og`(Instagram取得プロキシ)は同一オリジン以外からの呼び出しを拒否
+- 設定画面から招待URLを再発行可能。**注意**: 再発行で無効になるのは「今後の参加」のみで、すでに参加済みのメンバーは残ります(メンバー削除機能はありません)
+
+ダッシュボード側の推奨設定: Supabase / Vercel / GitHub 各アカウントの2FA、匿名サインインのレート制限(5回/時程度)、VercelのDeployment Protection(プレビュー保護)とFirewallでの日本以外Challenge。
+
+SupabaseのSecurity Advisorには、匿名認証を前提とするこのアプリの設計上、常に9件の警告が表示されます(`is_board_member` のanon実行可・authenticatedのRPC実行可・匿名ユーザーへのRLS適用など)。これらは意図した状態なので、**この9件から増えていないか**だけを確認してください。
+
 ## iOS PWAでの注意点(セッション消失時の再参加)
 
-iOSのSafari/PWAはブラウザのサイトデータを削除すると匿名認証のセッションも一緒に消え、同じボードに再ログインする手段がなくなります。この対策として、アプリの「設定」画面に**招待URL(再参加用リンク)を常時表示**しています。セッションが消えてしまった場合は、この招待URLを開き直すことで同じボードに再参加できます。招待URLはパートナーとのやり取り(メモアプリやメッセージなど)に控えておくことをおすすめします。
+iOSのSafari/PWAはブラウザのサイトデータを削除すると匿名認証のセッションも一緒に消え、同じボードに再ログインする手段がなくなります。この対策として、アプリの「設定」画面に**招待URL(再参加用リンク)を常時表示**しています。セッションが消えてしまった場合は、この招待URLを開き直すことで同じボードに再参加できます。招待URLはパートナーとのやり取り(メモアプリやメッセージなど)に控えておくことをおすすめします。招待URLを再発行した場合は、控えも新しいURLに更新してください。
 
 ## 技術スタック
 
 - Next.js (App Router) + TypeScript
 - Supabase (PostgreSQL + 匿名認証 + Storage)
-- TanStack Query
-- Tailwind CSS + vaul(ボトムシート)
+- TanStack Query(`refetchOnWindowFocus` で「開いたら最新」。Realtimeは使いません)
+- Tailwind CSS v4 — 新聞紙面風の「Broadsheet」デザイン(Source Serif 4 + Phosphor Icons duotone)
 - Serwist(PWAのインストール可能性のための最小構成のservice worker。オフラインキャッシュは行いません)
+- browser-image-compression(写真は長辺1200pxに圧縮してからアップロード)
 
 詳細な仕様・設計判断は [`CLAUDE.md`](./CLAUDE.md) を参照してください。
