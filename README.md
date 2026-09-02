@@ -21,14 +21,6 @@
 
 `supabase/migrations/` に全スキーマが番号順に入っています。
 
-| ファイル | 内容 |
-|---|---|
-| `0001_init.sql` | テーブル・RLSポリシー・`create_board` / `join_board` RPC・photosバケット |
-| `0002_cook_count.sql` | リピート回数カウント用の列 |
-| `0003_revoke_anon_rpc_execute.sql` | 未サインインからのRPC実行権剥奪 |
-| `0004_photos_bucket_limits.sql` | 写真アップロードの5MB・画像のみ制限 |
-| `0005_rotate_invite_token.sql` | 招待URL再発行RPC |
-
 - **Supabase CLIを使う場合(推奨)**:
 
   ```bash
@@ -38,7 +30,7 @@
 
   ※ `supabase link` には[Personal Access Token](https://supabase.com/dashboard/account/tokens)(`sbp_…`)での `supabase login` が必要です(APIキーとは別物)。
 
-- **SQL Editorから直接実行する場合**: ダッシュボードのSQL Editorで、上記ファイルを番号順にすべて実行する。
+- **SQL Editorから直接実行する場合**: ダッシュボードのSQL Editorで、`supabase/migrations/` のファイルを番号順にすべて実行する。
 
 ### 3. 匿名認証を有効化する
 
