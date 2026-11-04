@@ -7,14 +7,24 @@ on:
     - cron: "0 0 * * 1,4" # 毎週月曜・木曜 00:00 UTC
   workflow_dispatch: {}
 
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
 jobs:
   ping:
+    name: Ping Supabase
+    timeout-minutes: 5
     runs-on: ubuntu-latest
+    permissions: {}
     steps:
       - name: Ping Supabase REST API
         env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          # 専用の environment は作らず repository secrets をそのまま使う(個人用の小規模リポジトリのため)
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }} # zizmor: ignore[secrets-outside-env]
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }} # zizmor: ignore[secrets-outside-env]
         run: |
           http_status=$(curl -s -o /dev/null -w "%{http_code}" \
             "${SUPABASE_URL}/rest/v1/boards?select=id&limit=1" \
