@@ -1,0 +1,21 @@
+# GitHub Actions のバージョン更新を Dependabot に任せる。
+# ワークフロー内の Action はコミットハッシュで固定しているため(pinact)、
+# 新しいバージョンが出たら SHA と末尾の `# vX.Y.Z` コメントを更新する PR が自動で作られる。
+# npm 依存は対象外(無料枠の個人アプリで、更新頻度を抑えるため)。
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      timezone: Asia/Tokyo
+    # リリース直後のバージョンは取り込まない(タグ書き換え等が発覚するまでの猶予。zizmor の dependabot-cooldown 対応)
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: "ci"
+    groups:
+      github-actions:
+        patterns:
+          - "*"
