@@ -30,7 +30,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v6.1.0
+      - uses: actions/checkout@v7.0.1
         with:
           persist-credentials: false
       - name: Run actionlint
@@ -45,7 +45,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v6.1.0
+      - uses: actions/checkout@v7.0.1
         with:
           persist-credentials: false
       - name: Install ghalint
@@ -74,7 +74,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v6.1.0
+      - uses: actions/checkout@v7.0.1
         with:
           persist-credentials: false
       - uses: zizmorcore/zizmor-action@v0.8.1
