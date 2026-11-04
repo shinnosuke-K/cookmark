@@ -1,0 +1,42 @@
+name: Verify actions lockfile
+
+# .github/workflows/actions.lock がワークフローと食い違っていないか、
+# lockfile に記録したコミットが上流でまだ有効かを検証する。
+# lockfile は `gh actions-lock` で生成・更新する(手で編集しない)。
+# 参考: https://github.com/github/gh-actions-lock
+
+permissions: {}
+
+on:
+  pull_request:
+    paths:
+      - ".github/**"
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/**"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: gh actions-lock --verify
+    timeout-minutes: 5
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6.1.0
+        with:
+          persist-credentials: false
+      - name: Install gh-actions-lock
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh extension install github/gh-actions-lock --pin v0.4.1
+      - name: Verify lockfile
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh actions-lock --verify --no-interactive
