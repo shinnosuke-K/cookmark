@@ -2,6 +2,8 @@ name: GitHub Actions Lint
 
 # ワークフロー定義の静的チェック。actionlint(構文)/ ghalint(ポリシー)/ zizmor(セキュリティ)を
 # それぞれ別 job で実行する。
+# Action のバージョンは .github/workflows/actions.lock(gh actions-lock)で固定しているため、
+# uses: はタグ指定でよい。ghalint / zizmor は lockfile 対応版(1.6.0 / 1.32.0 以降)を使う。
 # 参考: https://zenn.dev/kou_pg_0131/articles/gha-static-checker
 
 permissions: {}
@@ -28,10 +30,13 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+      - uses: actions/checkout@v6.1.0
         with:
           persist-credentials: false
-      - uses: koki-develop/github-actions-lint/actionlint@5ecd42b59803f14bfaa7ed0bfb8de8c1dc1b4c6d # v1.6.0
+      - name: Run actionlint
+        uses: docker://rhysd/actionlint:1.7.12@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667
+        with:
+          args: -color
 
   ghalint:
     name: ghalint
@@ -40,10 +45,27 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+      - uses: actions/checkout@v6.1.0
         with:
           persist-credentials: false
-      - uses: koki-develop/github-actions-lint/ghalint@5ecd42b59803f14bfaa7ed0bfb8de8c1dc1b4c6d # v1.6.0
+      - name: Install ghalint
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GHALINT_VERSION: "1.6.0"
+          # https://github.com/suzuki-shunsuke/ghalint/releases/download/v1.6.0/ghalint_1.6.0_checksums.txt
+          GHALINT_SHA256: eda1af79c1a4a31c2de5831cd1333ad582fa6fa72015f8e9c1c4525d550c1d35
+        run: |
+          set -euo pipefail
+          archive="ghalint_${GHALINT_VERSION}_linux_amd64.tar.gz"
+          gh release download "v${GHALINT_VERSION}" --repo suzuki-shunsuke/ghalint --pattern "${archive}" --dir "${RUNNER_TEMP}"
+          echo "${GHALINT_SHA256}  ${RUNNER_TEMP}/${archive}" | sha256sum -c -
+          tar -xzf "${RUNNER_TEMP}/${archive}" -C "${RUNNER_TEMP}" ghalint
+          install -m 0755 "${RUNNER_TEMP}/ghalint" /usr/local/bin/ghalint
+          ghalint -v
+      - name: Run ghalint
+        env:
+          GHALINT_LOG_COLOR: always
+        run: ghalint run
 
   zizmor:
     name: zizmor
@@ -52,10 +74,12 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+      - uses: actions/checkout@v6.1.0
         with:
           persist-credentials: false
-      - uses: koki-develop/github-actions-lint/zizmor@5ecd42b59803f14bfaa7ed0bfb8de8c1dc1b4c6d # v1.6.0
+      - uses: zizmorcore/zizmor-action@v0.8.1
         with:
-          github-token: ${{ github.token }}
+          version: "1.32.0" # lockfile 対応は 1.32.0 以降
           persona: auditor
+          advanced-security: false
+          annotations: true

@@ -165,6 +165,8 @@ components/
 
 初期実装(土台〜PWA化)は完了し、本番稼働中(Vercel + Supabase、夫婦で実利用)。UIはその後 Broadsheet デザインへ全面刷新済み。機能追加時は feature ブランチ → レビュー → main へマージ → push(スキーマ変更は `supabase db push` も)の流れで進める。
 
+CI は GitHub Actions のワークフロー定義そのものを検査する(actionlint / ghalint / zizmor と、`gh actions-lock --verify` による lockfile 検証)。Action のバージョンは `.github/workflows/actions.lock` で固定しているため、ワークフローの `uses:` を追加・変更したら `gh actions-lock` を実行して lockfile を更新し、一緒にコミットする(lockfile は手で編集しない)。
+
 ## コーディング規約・方針
 
 - TypeScript strict。DBの型は `lib/database.types.ts` に手書きで維持する(スキーマ変更時に一緒に更新)
