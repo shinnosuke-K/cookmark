@@ -28,11 +28,11 @@ function pickRandom(list: Recipe[]): Recipe | null {
 
 export default function TonightPage() {
   const toast = useToast();
-  const { data: member, isLoading: memberLoading } = useMyMember();
-  const { data: todoRecipes, isLoading: todoLoading } = useTodoRecipes(
+  const { data: member, isPending: memberLoading } = useMyMember();
+  const { data: todoRecipes, isPending: todoLoading } = useTodoRecipes(
     member?.board_id,
   );
-  const { data: archiveRecipes, isLoading: archiveLoading } = useArchiveRecipes(
+  const { data: archiveRecipes, isPending: archiveLoading } = useArchiveRecipes(
     member?.board_id,
   );
   const { data: members } = useBoardMembers(member?.board_id);

@@ -1,5 +1,7 @@
 "use client";
 
+import { ArrowSquareOut } from "@phosphor-icons/react/dist/csr/ArrowSquareOut";
+import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CategoryChips } from "./CategoryChips";
 import { IngredientInput } from "./IngredientInput";
@@ -8,7 +10,12 @@ import { useToast } from "./Toast";
 import { joinIngredients } from "@/lib/ingredients";
 import { fetchOgData, parseInstagramUrl, type OgData } from "@/lib/instagram";
 import { uploadRecipePhoto } from "@/lib/photos";
-import { useAddRecipe, useUpdateRecipe, type Recipe } from "@/lib/recipes";
+import {
+  useAddRecipe,
+  useRecipeByShortcode,
+  useUpdateRecipe,
+  type Recipe,
+} from "@/lib/recipes";
 import type { RecipeCategory } from "@/lib/database.types";
 
 const OG_CAPTION_MAX_LENGTH = 2000;
@@ -62,6 +69,12 @@ export function AddRecipeForm({
   const [ingredients, setIngredients] = useState<string[]>([]);
   const addRecipe = useAddRecipe();
   const updateRecipe = useUpdateRecipe();
+
+  // 重複検出。夫婦が同じ投稿をそれぞれ保存するのは一番起きやすいケースなので、
+  // URLのshortcodeがボード内の既存レシピ(未挑戦・作った両方)と一致したら知らせる。
+  // 追加自体は止めない(あえて二重に持ちたい場合もありうる)。
+  const shortcodeInUrl = parseInstagramUrl(url)?.shortcode ?? null;
+  const { data: duplicate } = useRecipeByShortcode(boardId, shortcodeInUrl);
 
   // Instagram自動取得(ベストエフォート)。フォームが開いた時点のURLにshortcodeが
   // 含まれていれば、フォームをブロックせずバックグラウンドで取得する。結果は
@@ -240,6 +253,28 @@ export function AddRecipeForm({
             placeholder="https://www.instagram.com/p/..."
             inputMode="url"
           />
+          {duplicate && (
+            <p
+              className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-md px-3 py-2 text-[14px]"
+              style={{
+                background: "var(--color-accent-100)",
+                color: "var(--color-accent-700)",
+              }}
+            >
+              <span>
+                この投稿は追加済みです(
+                {duplicate.status === "cooked" ? "作った" : "未挑戦"}: {duplicate.title})
+              </span>
+              <Link
+                href={`/recipe/${duplicate.id}`}
+                onClick={onClose}
+                className="inline-flex min-h-11 items-center gap-1 font-semibold underline underline-offset-2"
+              >
+                開く
+                <ArrowSquareOut size={14} weight="duotone" />
+              </Link>
+            </p>
+          )}
         </div>
 
         <div>
@@ -306,7 +341,11 @@ export function AddRecipeForm({
             disabled={addRecipe.isPending}
             className="ck-btn ck-btn-primary min-h-[52px] flex-2 text-[16px]"
           >
-            {addRecipe.isPending ? "追加中..." : "追加する"}
+            {addRecipe.isPending
+              ? "追加中..."
+              : duplicate
+                ? "それでも追加する"
+                : "追加する"}
           </button>
         </div>
       </div>

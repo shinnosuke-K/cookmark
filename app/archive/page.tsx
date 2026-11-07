@@ -9,8 +9,8 @@ import type { RecipeCategory } from "@/lib/database.types";
 import { useArchiveRecipes, useBoardMembers } from "@/lib/recipes";
 
 export default function ArchivePage() {
-  const { data: member, isLoading: memberLoading } = useMyMember();
-  const { data: recipes, isLoading: recipesLoading } = useArchiveRecipes(
+  const { data: member, isPending: memberLoading } = useMyMember();
+  const { data: recipes, isPending: recipesLoading } = useArchiveRecipes(
     member?.board_id,
   );
   const { data: members } = useBoardMembers(member?.board_id);

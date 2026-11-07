@@ -41,11 +41,11 @@ const EMPTY_FORM: AddRecipeFormInitial = {
 
 export default function Home() {
   const toast = useToast();
-  const { data: member, isLoading } = useMyMember();
+  const { data: member, isPending } = useMyMember();
   const createBoard = useCreateBoard();
   const [name, setName] = useState("");
 
-  const { data: recipes, isLoading: recipesLoading } = useTodoRecipes(
+  const { data: recipes, isPending: recipesLoading } = useTodoRecipes(
     member?.board_id,
   );
   const { data: members } = useBoardMembers(member?.board_id);
@@ -153,7 +153,9 @@ export default function Home() {
     });
   }
 
-  if (isLoading) {
+  // isLoadingではなくisPendingを見る。永続化キャッシュの復元中はfetchStatusが
+  // idleになりisLoadingがfalseになるため、isLoadingだと一瞬ウェルカム画面が出てしまう。
+  if (isPending) {
     return (
       <div className="ck-screen ck-meta items-center justify-center">
         読み込み中...

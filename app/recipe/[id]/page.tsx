@@ -2,6 +2,7 @@
 
 import { ArrowSquareOut } from "@phosphor-icons/react/dist/csr/ArrowSquareOut";
 import { ArrowsClockwise } from "@phosphor-icons/react/dist/csr/ArrowsClockwise";
+import { ArrowUUpLeft } from "@phosphor-icons/react/dist/csr/ArrowUUpLeft";
 import { CaretLeft } from "@phosphor-icons/react/dist/csr/CaretLeft";
 import { InstagramLogo } from "@phosphor-icons/react/dist/csr/InstagramLogo";
 import { Trash } from "@phosphor-icons/react/dist/csr/Trash";
@@ -10,6 +11,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
 import { CategoryChips } from "@/components/CategoryChips";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { CookedSheet } from "@/components/CookedSheet";
 import { IngredientInput } from "@/components/IngredientInput";
 import { InstagramEmbed } from "@/components/InstagramEmbed";
 import { StatusBadge, VERDICT_STYLE, verdictChipStyle } from "@/components/VerdictBadge";
@@ -22,6 +24,7 @@ import {
   useCookAgain,
   useDeleteRecipe,
   useRecipe,
+  useRevertRecipeToTodo,
   useUpdateRecipe,
 } from "@/lib/recipes";
 
@@ -29,12 +32,22 @@ export default function RecipeDetailPage() {
   const toast = useToast();
   const params = useParams<{ id: string }>();
   const router = useRouter();
-  const { data: recipe, isLoading } = useRecipe(params.id);
+  const { data: recipe, isPending } = useRecipe(params.id);
   const { data: member } = useMyMember();
   const { data: members } = useBoardMembers(member?.board_id);
   const updateRecipe = useUpdateRecipe();
   const deleteRecipe = useDeleteRecipe();
   const cookAgain = useCookAgain();
+  const revert = useRevertRecipeToTodo({
+    onSuccess: () => {
+      setRevertConfirmOpen(false);
+      toast("未挑戦に戻しました");
+    },
+    onError: () => {
+      setRevertConfirmOpen(false);
+      toast("戻せませんでした。もう一度お試しください");
+    },
+  });
 
   const [title, setTitle] = useState("");
   const [memo, setMemo] = useState("");
@@ -42,6 +55,8 @@ export default function RecipeDetailPage() {
   const [category, setCategory] = useState<RecipeCategory | null>(null);
   const [verdict, setVerdict] = useState<RecipeVerdict | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [cookedSheetOpen, setCookedSheetOpen] = useState(false);
+  const [revertConfirmOpen, setRevertConfirmOpen] = useState(false);
 
   // recipeが読み込まれた/切り替わった、またはフォーム未編集のまま新しいデータが
   // 届いたタイミングで編集フォームの初期値をセットする。
@@ -121,6 +136,25 @@ export default function RecipeDetailPage() {
     );
   }
 
+  /** 「未挑戦に戻す」。2回以上作っている場合は回数が消えるので確認を挟む。 */
+  function handleRevertTap() {
+    if (!recipe) return;
+    if (recipe.cook_count >= 2) {
+      setRevertConfirmOpen(true);
+      return;
+    }
+    revert.mutate({ id: recipe.id, boardId: recipe.board_id });
+  }
+
+  /** アーカイブや今夜から来た場合はその画面へ戻る。直リンクで履歴が無ければホームへ。 */
+  function handleBack() {
+    if (window.history.length > 1) {
+      router.back();
+    } else {
+      router.push("/");
+    }
+  }
+
   function handleDelete() {
     if (!recipe) return;
     deleteRecipe.mutate(
@@ -139,7 +173,7 @@ export default function RecipeDetailPage() {
     );
   }
 
-  if (isLoading) {
+  if (isPending) {
     return (
       <div className="ck-screen ck-meta items-center justify-center">
         読み込み中...
@@ -170,13 +204,14 @@ export default function RecipeDetailPage() {
 
   return (
     <div className="ck-screen">
-      <Link
-        href="/"
+      <button
+        type="button"
+        onClick={handleBack}
         className="flex min-h-11 w-fit items-center gap-1 text-[14px] text-accent"
       >
         <CaretLeft size={16} weight="duotone" />
-        ホームへ戻る
-      </Link>
+        戻る
+      </button>
 
       <h1 className="text-[24px] leading-[1.2] font-semibold tracking-[-0.015em]">
         {recipe.title}
@@ -185,7 +220,7 @@ export default function RecipeDetailPage() {
       <div className="mt-1.5 flex flex-wrap items-center gap-2.5">
         {subtitle && <span className="ck-meta">{subtitle}</span>}
         <StatusBadge status={recipe.status} verdict={recipe.verdict} />
-        {recipe.status === "cooked" && (
+        {recipe.status === "cooked" ? (
           <>
             <span className="ck-meta text-[14px]">{recipe.cook_count}回作った</span>
             <button
@@ -198,6 +233,15 @@ export default function RecipeDetailPage() {
               また作った!
             </button>
           </>
+        ) : (
+          // 今夜どうする→詳細と来た流れで、ホームに戻って行を探さずにここで作ったにできる
+          <button
+            type="button"
+            onClick={() => setCookedSheetOpen(true)}
+            className="ck-btn ck-btn-primary ck-pill min-h-11 px-4 text-[14px]"
+          >
+            作った!
+          </button>
         )}
       </div>
 
@@ -331,6 +375,18 @@ export default function RecipeDetailPage() {
           {busy ? "保存中..." : "保存する"}
         </button>
 
+        {recipe.status === "cooked" && (
+          <button
+            type="button"
+            onClick={handleRevertTap}
+            disabled={revert.isPending}
+            className="ck-btn ck-btn-ghost min-h-11 w-full text-[15px]"
+          >
+            <ArrowUUpLeft size={18} weight="duotone" />
+            未挑戦に戻す
+          </button>
+        )}
+
         <button
           type="button"
           onClick={() => setConfirmOpen(true)}
@@ -342,6 +398,23 @@ export default function RecipeDetailPage() {
           削除する
         </button>
       </div>
+
+      {cookedSheetOpen && (
+        <CookedSheet recipe={recipe} onClose={() => setCookedSheetOpen(false)} />
+      )}
+
+      {revertConfirmOpen && (
+        <ConfirmDialog
+          title="未挑戦に戻しますか?"
+          body={`${recipe.cook_count}回作った記録と評価が消えます`}
+          confirmLabel="戻す"
+          isPending={revert.isPending}
+          onConfirm={() =>
+            revert.mutate({ id: recipe.id, boardId: recipe.board_id })
+          }
+          onCancel={() => setRevertConfirmOpen(false)}
+        />
+      )}
 
       {confirmOpen && (
         <ConfirmDialog

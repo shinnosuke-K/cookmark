@@ -1,4 +1,9 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type QueryClient,
+} from "@tanstack/react-query";
 import { supabase } from "./supabase";
 import type { Member } from "./board";
 import type { Database, RecipeCategory, RecipeVerdict } from "./database.types";
@@ -19,6 +24,12 @@ export const recipeQueryKey = (id: string | undefined) =>
 
 export const boardIngredientsQueryKey = (boardId: string | undefined) =>
   ["recipes", "ingredients", boardId] as const;
+
+/** 未挑戦・アーカイブの一覧キャッシュをまとめて無効化する(作った/戻す/削除/編集の後処理)。 */
+function invalidateRecipeLists(queryClient: QueryClient, boardId: string) {
+  queryClient.invalidateQueries({ queryKey: todoRecipesQueryKey(boardId) });
+  queryClient.invalidateQueries({ queryKey: archiveRecipesQueryKey(boardId) });
+}
 
 /** ボードの全メンバー(追加者名の表示用)。 */
 export async function getBoardMembers(boardId: string): Promise<Member[]> {
@@ -100,6 +111,39 @@ export function useBoardIngredients(boardId: string | undefined) {
     queryKey: boardIngredientsQueryKey(boardId),
     queryFn: () => getBoardIngredients(boardId as string),
     enabled: !!boardId,
+  });
+}
+
+export const recipeByShortcodeQueryKey = (
+  boardId: string | undefined,
+  shortcode: string | null,
+) => ["recipes", "byShortcode", boardId, shortcode] as const;
+
+/** 同じInstagram投稿がボードにすでにあるか(追加シートの重複検出用)。無ければnull。 */
+export async function findRecipeByShortcode(
+  boardId: string,
+  shortcode: string,
+): Promise<Pick<Recipe, "id" | "title" | "status"> | null> {
+  const { data, error } = await supabase
+    .from("recipes")
+    .select("id, title, status")
+    .eq("board_id", boardId)
+    .eq("post_shortcode", shortcode)
+    .limit(1)
+    .maybeSingle();
+
+  if (error) throw error;
+  return data;
+}
+
+export function useRecipeByShortcode(
+  boardId: string | undefined,
+  shortcode: string | null,
+) {
+  return useQuery({
+    queryKey: recipeByShortcodeQueryKey(boardId, shortcode),
+    queryFn: () => findRecipeByShortcode(boardId as string, shortcode as string),
+    enabled: !!boardId && !!shortcode,
   });
 }
 
@@ -225,16 +269,46 @@ export function useMarkRecipeCooked(options?: UseMarkRecipeCookedOptions) {
   return useMutation({
     mutationFn: markRecipeCooked,
     onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({
-        queryKey: todoRecipesQueryKey(variables.boardId),
-      });
-      queryClient.invalidateQueries({
-        queryKey: archiveRecipesQueryKey(variables.boardId),
-      });
-      queryClient.invalidateQueries({
-        queryKey: recipeQueryKey(variables.id),
-      });
+      invalidateRecipeLists(queryClient, variables.boardId);
+      queryClient.invalidateQueries({ queryKey: recipeQueryKey(variables.id) });
       options?.onSuccess?.(variables);
+    },
+    onError: () => {
+      options?.onError?.();
+    },
+  });
+}
+
+export interface RevertRecipeToTodoInput {
+  id: string;
+  boardId: string;
+}
+
+/**
+ * 「作った!」を取り消して未挑戦に戻す(誤タップの取り消し・詳細画面の「未挑戦に戻す」)。
+ * status/verdict/cooked_at/cook_count を未挑戦の初期状態に戻す。メモ・写真はそのまま残す。
+ */
+export async function revertRecipeToTodo({ id }: RevertRecipeToTodoInput): Promise<void> {
+  const { error } = await supabase
+    .from("recipes")
+    .update({ status: "todo", verdict: null, cooked_at: null, cook_count: 0 })
+    .eq("id", id);
+  if (error) throw error;
+}
+
+export function useRevertRecipeToTodo(options?: {
+  onSuccess?: () => void;
+  onError?: () => void;
+}) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: revertRecipeToTodo,
+    // フック生成時に登録する理由は useMarkRecipeCooked と同じ(トーストの「元に戻す」
+    // から呼ばれる時点で、呼び出し元のシートはすでにアンマウントされている)。
+    onSuccess: (_data, variables) => {
+      invalidateRecipeLists(queryClient, variables.boardId);
+      queryClient.invalidateQueries({ queryKey: recipeQueryKey(variables.id) });
+      options?.onSuccess?.();
     },
     onError: () => {
       options?.onError?.();
@@ -294,12 +368,7 @@ export function useUpdateRecipe() {
     mutationFn: updateRecipe,
     onSuccess: (recipe) => {
       queryClient.setQueryData(recipeQueryKey(recipe.id), recipe);
-      queryClient.invalidateQueries({
-        queryKey: todoRecipesQueryKey(recipe.board_id),
-      });
-      queryClient.invalidateQueries({
-        queryKey: archiveRecipesQueryKey(recipe.board_id),
-      });
+      invalidateRecipeLists(queryClient, recipe.board_id);
       queryClient.invalidateQueries({
         queryKey: boardIngredientsQueryKey(recipe.board_id),
       });
@@ -355,12 +424,7 @@ export function useDeleteRecipe() {
     mutationFn: deleteRecipe,
     onSuccess: (_data, variables) => {
       queryClient.removeQueries({ queryKey: recipeQueryKey(variables.id) });
-      queryClient.invalidateQueries({
-        queryKey: todoRecipesQueryKey(variables.boardId),
-      });
-      queryClient.invalidateQueries({
-        queryKey: archiveRecipesQueryKey(variables.boardId),
-      });
+      invalidateRecipeLists(queryClient, variables.boardId);
       queryClient.invalidateQueries({
         queryKey: boardIngredientsQueryKey(variables.boardId),
       });

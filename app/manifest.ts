@@ -8,8 +8,10 @@ export default function manifest(): MetadataRoute.Manifest {
     start_url: "/",
     display: "standalone",
     lang: "ja",
-    background_color: "#ffffff",
-    theme_color: "#f97316",
+    // Broadsheetの紙色に合わせる(layout.tsxのthemeColor・globals.cssの--color-bgと同じ値)。
+    // ここだけ別の色だとAndroidのスプラッシュ画面だけ違う色で出てしまう。
+    background_color: "#f3f2f2",
+    theme_color: "#f3f2f2",
     icons: [
       {
         src: "/icon-192.png",

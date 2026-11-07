@@ -13,8 +13,8 @@ const COPIED_RESET_MS = 2400;
 
 export default function SettingsPage() {
   const toast = useToast();
-  const { data: member, isLoading: memberLoading } = useMyMember();
-  const { data: board, isLoading: boardLoading } = useBoard(member?.board_id);
+  const { data: member, isPending: memberLoading } = useMyMember();
+  const { data: board, isPending: boardLoading } = useBoard(member?.board_id);
   const rotateInviteToken = useRotateInviteToken(board?.id);
   const [copied, setCopied] = useState(false);
   const [rotateConfirmOpen, setRotateConfirmOpen] = useState(false);
@@ -61,7 +61,8 @@ export default function SettingsPage() {
     });
   }
 
-  if (memberLoading || boardLoading) {
+  // boardクエリはmemberが無い間は無効(=pendingのまま)なので、member確定後だけ見る
+  if (memberLoading || (member && boardLoading)) {
     return (
       <div className="ck-screen ck-meta items-center justify-center">
         読み込み中...
