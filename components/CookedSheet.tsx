@@ -8,7 +8,11 @@ import { useRef, useState } from "react";
 import { Sheet } from "./Sheet";
 import { useToast } from "./Toast";
 import { uploadRecipePhoto } from "@/lib/photos";
-import { useMarkRecipeCooked, type Recipe } from "@/lib/recipes";
+import {
+  useMarkRecipeCooked,
+  useRevertRecipeToTodo,
+  type Recipe,
+} from "@/lib/recipes";
 import type { RecipeVerdict } from "@/lib/database.types";
 
 interface CookedSheetProps {
@@ -34,13 +38,24 @@ export function CookedSheet({ recipe, onClose }: CookedSheetProps) {
   // シートは選択と同時に即クローズするため、成功時の後処理(トースト・遷移)は
   // mutate()呼び出し時ではなくフック生成時のオプションに登録する
   // (詳しい理由はuseMarkRecipeCookedOptions側のコメント参照)。
+  // 「作った!」はホームの全行に並ぶ大きなボタンで誤タップが起きやすく、シートを
+  // 閉じただけでもレシピはアーカイブへ移る。保存直後のトーストに「元に戻す」を
+  // 付けて、未挑戦へ戻せるようにする。
+  const revert = useRevertRecipeToTodo({
+    onSuccess: () => toast("未挑戦に戻しました"),
+    onError: () => toast("戻せませんでした。詳細画面から「未挑戦に戻す」を押してください"),
+  });
+  const undoAction = {
+    label: "元に戻す",
+    onAction: () => revert.mutate({ id: recipe.id, boardId: recipe.board_id }),
+  };
   const markCooked = useMarkRecipeCooked({
     onSuccess: (variables) => {
       if (variables.verdict) {
-        toast(VERDICT_TOAST[variables.verdict]);
+        toast(VERDICT_TOAST[variables.verdict], undoAction);
         router.push("/archive");
       } else {
-        toast("作った!を保存しました(未評価)");
+        toast("作った!を保存しました(未評価)", undoAction);
       }
     },
     onError: () => toast("保存に失敗しました。もう一度お試しください"),
@@ -77,11 +92,21 @@ export function CookedSheet({ recipe, onClose }: CookedSheetProps) {
       }
     }
 
+    // メモ欄が空なら既存のメモ(Instagramのキャプションや詳細で書いたメモ)を
+    // そのまま残す(nullを渡すと上書きで消えてしまう)。入力があれば、既存メモの
+    // 前に置く(キャプションは長いので、後ろに足すと埋もれて見えなくなる)。
+    const typed = memo.trim();
+    const mergedMemo = typed
+      ? recipe.memo
+        ? `${typed}\n\n${recipe.memo}`
+        : typed
+      : undefined;
+
     markCooked.mutate({
       id: recipe.id,
       boardId: recipe.board_id,
       verdict,
-      memo: memo.trim() || null,
+      memo: mergedMemo,
       photoPath,
     });
     onClose();
@@ -154,7 +179,7 @@ export function CookedSheet({ recipe, onClose }: CookedSheetProps) {
           className="ck-btn ck-btn-secondary min-h-12 w-full text-[15px]"
         >
           <Camera size={20} weight="duotone" />
-          {photoFile ? "写真を変更" : "写真を追加"}
+          {uploading ? "写真をアップロード中..." : photoFile ? "写真を変更" : "写真を追加"}
         </button>
         {photoPreview && (
           // 選択直後のローカルプレビュー(object URL)なのでnext/imageには載せない

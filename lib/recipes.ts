@@ -242,6 +242,50 @@ export function useMarkRecipeCooked(options?: UseMarkRecipeCookedOptions) {
   });
 }
 
+export interface RevertRecipeToTodoInput {
+  id: string;
+  boardId: string;
+}
+
+/**
+ * 「作った!」を取り消して未挑戦に戻す(誤タップの取り消し・詳細画面の「未挑戦に戻す」)。
+ * status/verdict/cooked_at/cook_count を未挑戦の初期状態に戻す。メモ・写真はそのまま残す。
+ */
+export async function revertRecipeToTodo({ id }: RevertRecipeToTodoInput): Promise<void> {
+  const { error } = await supabase
+    .from("recipes")
+    .update({ status: "todo", verdict: null, cooked_at: null, cook_count: 0 })
+    .eq("id", id);
+  if (error) throw error;
+}
+
+export function useRevertRecipeToTodo(options?: {
+  onSuccess?: () => void;
+  onError?: () => void;
+}) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: revertRecipeToTodo,
+    // フック生成時に登録する理由は useMarkRecipeCooked と同じ(トーストの「元に戻す」
+    // から呼ばれる時点で、呼び出し元のシートはすでにアンマウントされている)。
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: todoRecipesQueryKey(variables.boardId),
+      });
+      queryClient.invalidateQueries({
+        queryKey: archiveRecipesQueryKey(variables.boardId),
+      });
+      queryClient.invalidateQueries({
+        queryKey: recipeQueryKey(variables.id),
+      });
+      options?.onSuccess?.();
+    },
+    onError: () => {
+      options?.onError?.();
+    },
+  });
+}
+
 export interface UpdateRecipeInput {
   id: string;
   boardId: string;
