@@ -9,6 +9,7 @@ import { Sheet } from "./Sheet";
 import { useToast } from "./Toast";
 import { uploadRecipePhoto } from "@/lib/photos";
 import {
+  getRecipe,
   useMarkRecipeCooked,
   useRevertRecipeToTodo,
   type Recipe,
@@ -95,12 +96,14 @@ export function CookedSheet({ recipe, onClose }: CookedSheetProps) {
     // メモ欄が空なら既存のメモ(Instagramのキャプションや詳細で書いたメモ)を
     // そのまま残す(nullを渡すと上書きで消えてしまう)。入力があれば、既存メモの
     // 前に置く(キャプションは長いので、後ろに足すと埋もれて見えなくなる)。
+    // 一覧の行データは古いことがある(相手が詳細で直したメモを持っていない)ので、
+    // 結合の土台には今の行を取り直して使う。取れなければ手元の値で続ける。
     const typed = memo.trim();
-    const mergedMemo = typed
-      ? recipe.memo
-        ? `${typed}\n\n${recipe.memo}`
-        : typed
-      : undefined;
+    let mergedMemo: string | undefined;
+    if (typed) {
+      const existing = (await getRecipe(recipe.id).catch(() => null))?.memo ?? recipe.memo;
+      mergedMemo = existing ? `${typed}\n\n${existing}` : typed;
+    }
 
     markCooked.mutate({
       id: recipe.id,

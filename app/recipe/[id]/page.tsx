@@ -32,7 +32,7 @@ export default function RecipeDetailPage() {
   const toast = useToast();
   const params = useParams<{ id: string }>();
   const router = useRouter();
-  const { data: recipe, isLoading } = useRecipe(params.id);
+  const { data: recipe, isPending } = useRecipe(params.id);
   const { data: member } = useMyMember();
   const { data: members } = useBoardMembers(member?.board_id);
   const updateRecipe = useUpdateRecipe();
@@ -173,7 +173,7 @@ export default function RecipeDetailPage() {
     );
   }
 
-  if (isLoading) {
+  if (isPending) {
     return (
       <div className="ck-screen ck-meta items-center justify-center">
         読み込み中...

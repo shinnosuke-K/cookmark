@@ -2,7 +2,7 @@
 
 import { ArrowSquareOut } from "@phosphor-icons/react/dist/csr/ArrowSquareOut";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { CategoryChips } from "./CategoryChips";
 import { IngredientInput } from "./IngredientInput";
 import { Sheet } from "./Sheet";
@@ -12,8 +12,7 @@ import { fetchOgData, parseInstagramUrl, type OgData } from "@/lib/instagram";
 import { uploadRecipePhoto } from "@/lib/photos";
 import {
   useAddRecipe,
-  useArchiveRecipes,
-  useTodoRecipes,
+  useRecipeByShortcode,
   useUpdateRecipe,
   type Recipe,
 } from "@/lib/recipes";
@@ -74,17 +73,8 @@ export function AddRecipeForm({
   // 重複検出。夫婦が同じ投稿をそれぞれ保存するのは一番起きやすいケースなので、
   // URLのshortcodeがボード内の既存レシピ(未挑戦・作った両方)と一致したら知らせる。
   // 追加自体は止めない(あえて二重に持ちたい場合もありうる)。
-  const { data: todoRecipes } = useTodoRecipes(boardId);
-  const { data: archiveRecipes } = useArchiveRecipes(boardId);
-  const duplicate = useMemo(() => {
-    const shortcode = parseInstagramUrl(url)?.shortcode;
-    if (!shortcode) return null;
-    return (
-      [...(todoRecipes ?? []), ...(archiveRecipes ?? [])].find(
-        (r) => r.post_shortcode === shortcode,
-      ) ?? null
-    );
-  }, [url, todoRecipes, archiveRecipes]);
+  const shortcodeInUrl = parseInstagramUrl(url)?.shortcode ?? null;
+  const { data: duplicate } = useRecipeByShortcode(boardId, shortcodeInUrl);
 
   // Instagram自動取得(ベストエフォート)。フォームが開いた時点のURLにshortcodeが
   // 含まれていれば、フォームをブロックせずバックグラウンドで取得する。結果は
@@ -278,7 +268,7 @@ export function AddRecipeForm({
               <Link
                 href={`/recipe/${duplicate.id}`}
                 onClick={onClose}
-                className="inline-flex min-h-8 items-center gap-1 font-semibold underline underline-offset-2"
+                className="inline-flex min-h-11 items-center gap-1 font-semibold underline underline-offset-2"
               >
                 開く
                 <ArrowSquareOut size={14} weight="duotone" />
