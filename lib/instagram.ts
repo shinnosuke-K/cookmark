@@ -47,6 +47,8 @@ export interface OgData {
   category: RecipeCategory | null;
   /** Claudeが抜き出した主な食材。構造化できなかった場合は空配列。 */
   ingredients: string[];
+  /** 食材ごとの分量(食材名 → 分量)。キャプションに分量の記載があった食材のみ。 */
+  ingredientAmounts: Record<string, string>;
 }
 
 // サーバー側はInstagramの取得(最大5秒)のあとにClaudeでの構造化(最大8秒)を行う。
@@ -54,7 +56,7 @@ const OG_FETCH_TIMEOUT_MS = 15000;
 
 /**
  * サーバー側プロキシ `/api/og` 経由で、Instagram投稿のタイトル・キャプション・
- * 投稿者・画像URL・カテゴリ・食材をベストエフォートで取得する。あくまで自動取得は
+ * 投稿者・画像URL・カテゴリ・食材(と分量)をベストエフォートで取得する。あくまで自動取得は
  * 補助的な機能なので、失敗しても例外は投げずnullを返す(呼び出し側は常に手動入力に
  * フォールバックできる)。アクセストークンは、サーバーがボードのメンバーにだけ
  * Claudeでの構造化を行うために送る。

@@ -7,7 +7,7 @@ import { CategoryChips } from "./CategoryChips";
 import { IngredientInput } from "./IngredientInput";
 import { Sheet } from "./Sheet";
 import { useToast } from "./Toast";
-import { joinIngredients } from "@/lib/ingredients";
+import { joinIngredients, pickIngredientAmounts } from "@/lib/ingredients";
 import { fetchOgData, parseInstagramUrl, type OgData } from "@/lib/instagram";
 import { uploadRecipePhoto } from "@/lib/photos";
 import {
@@ -67,6 +67,9 @@ export function AddRecipeForm({
     initial.category,
   );
   const [ingredients, setIngredients] = useState<string[]>([]);
+  // 自動取得で得た分量(食材名 → 分量)。チップに添えて表示し、追加確定時に
+  // チップに残っている食材の分だけ保存する。
+  const [ingredientAmounts, setIngredientAmounts] = useState<Record<string, string>>({});
   const addRecipe = useAddRecipe();
   const updateRecipe = useUpdateRecipe();
 
@@ -121,6 +124,8 @@ export function AddRecipeForm({
       });
     }
     if (data.ingredients.length > 0) {
+      // 分量は食材名で引くだけなので、手入力の食材が優先された場合に置き換えても害はない。
+      setIngredientAmounts(data.ingredientAmounts);
       setIngredients((prev) => {
         const ownedByUser =
           prev.length > 0 && prev.join("\n") !== autoFilledIngredientsRef.current?.join("\n");
@@ -227,6 +232,7 @@ export function AddRecipeForm({
         instagramUrl: parsed?.cleanUrl ?? null,
         postShortcode: parsed?.shortcode ?? null,
         ingredients: joinIngredients(ingredients),
+        ingredientAmounts: pickIngredientAmounts(ingredients, ingredientAmounts),
         memo: ogData?.caption
           ? truncateToCodePoints(ogData.caption, OG_CAPTION_MAX_LENGTH)
           : null,
@@ -329,6 +335,7 @@ export function AddRecipeForm({
             boardId={boardId}
             value={ingredients}
             onChange={setIngredients}
+            amounts={ingredientAmounts}
             inputId="add-ingredients"
           />
         </div>

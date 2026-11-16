@@ -177,6 +177,8 @@ export interface AddRecipeInput {
   postShortcode: string | null;
   /** 食材のカンマ区切り文字列。未入力ならnull。 */
   ingredients?: string | null;
+  /** 食材ごとの分量(食材名 → 分量)。Instagram自動取得で得られた場合のみ指定する。 */
+  ingredientAmounts?: Record<string, string> | null;
   /** Instagram自動取得(ベストエフォート)のキャプションを添えて登録する場合のみ指定する。 */
   memo?: string | null;
 }
@@ -193,6 +195,7 @@ export async function addRecipe(input: AddRecipeInput): Promise<Recipe> {
       instagram_url: input.instagramUrl,
       post_shortcode: input.postShortcode,
       ingredients: input.ingredients ?? null,
+      ingredient_amounts: input.ingredientAmounts ?? null,
       memo: input.memo ?? null,
       status: "todo",
     })
@@ -326,6 +329,8 @@ export interface UpdateRecipeInput {
   memo?: string | null;
   /** 食材のカンマ区切り文字列。nullで未登録に戻す。undefinedなら変更しない。 */
   ingredients?: string | null;
+  /** 食材ごとの分量。nullで分量なしに戻す。undefinedなら変更しない。 */
+  ingredientAmounts?: Record<string, string> | null;
   category?: RecipeCategory | null;
   /** 写真を差し替えた場合のみ指定する。undefinedなら既存の写真を保持する。 */
   photoPath?: string;
@@ -339,6 +344,7 @@ export async function updateRecipe({
   title,
   memo,
   ingredients,
+  ingredientAmounts,
   category,
   photoPath,
   verdict,
@@ -347,6 +353,7 @@ export async function updateRecipe({
   if (title !== undefined) update.title = title;
   if (memo !== undefined) update.memo = memo;
   if (ingredients !== undefined) update.ingredients = ingredients;
+  if (ingredientAmounts !== undefined) update.ingredient_amounts = ingredientAmounts;
   if (category !== undefined) update.category = category;
   if (photoPath !== undefined) update.photo_path = photoPath;
   if (verdict !== undefined) update.verdict = verdict;

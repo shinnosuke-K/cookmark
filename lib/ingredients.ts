@@ -52,3 +52,19 @@ export function frequentIngredients(
     .slice(0, limit)
     .map(([token]) => token);
 }
+
+/**
+ * 分量の対応表(食材名 → 分量)から、いまチップに残っている食材の分だけを取り出す。
+ * チップを消した食材の分量を保存に持ち越さないためのもの。1件も無ければnull。
+ */
+export function pickIngredientAmounts(
+  names: string[],
+  amounts: Record<string, string> | null | undefined,
+): Record<string, string> | null {
+  const picked: Record<string, string> = {};
+  for (const name of names) {
+    const amount = amounts?.[name];
+    if (amount) picked[name] = amount;
+  }
+  return Object.keys(picked).length > 0 ? picked : null;
+}

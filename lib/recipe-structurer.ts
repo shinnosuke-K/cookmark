@@ -1,4 +1,4 @@
-// Instagram投稿のキャプションから料理名・カテゴリ・食材をClaudeで抜き出すサーバー専用
+// Instagram投稿のキャプションから料理名・カテゴリ・食材(と分量)をClaudeで抜き出すサーバー専用
 // ユーティリティ。自動取得の一部なのでベストエフォート: APIキー未設定・タイムアウト・
 // 拒否・想定外の出力はすべてnullを返し、呼び出し側(app/api/og/route.ts)は正規表現で
 // 得た結果にフォールバックする(この関数は例外を投げない)。
@@ -15,6 +15,7 @@ const MODEL = "claude-haiku-5-5";
 const REQUEST_TIMEOUT_MS = 8000;
 const MAX_TITLE_LENGTH = 80;
 const MAX_INGREDIENTS = 8;
+const MAX_AMOUNT_LENGTH = 20;
 const UNKNOWN_CATEGORY = "不明";
 
 export interface StructuredRecipe {
@@ -22,6 +23,8 @@ export interface StructuredRecipe {
   title: string;
   category: RecipeCategory | null;
   ingredients: string[];
+  /** 食材名 → 分量。キャプションに分量の記載があった食材のみ。 */
+  ingredientAmounts: Record<string, string>;
 }
 
 // プロンプト本文は lib/prompts/recipe-structurer.txt で管理する。カテゴリの一覧などコードと
@@ -37,7 +40,15 @@ const OUTPUT_SCHEMA = {
   properties: {
     title: { type: "string" },
     category: { type: "string", enum: [...CATEGORIES, UNKNOWN_CATEGORY] },
-    ingredients: { type: "array", items: { type: "string" } },
+    ingredients: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: { name: { type: "string" }, amount: { type: "string" } },
+        required: ["name", "amount"],
+        additionalProperties: false,
+      },
+    },
   },
   required: ["title", "category", "ingredients"],
   additionalProperties: false,
@@ -47,6 +58,12 @@ let client: Anthropic | null = null;
 
 function isCategory(value: unknown): value is RecipeCategory {
   return (CATEGORIES as unknown[]).includes(value);
+}
+
+function isIngredientItem(value: unknown): value is { name: string; amount: string } {
+  if (typeof value !== "object" || value === null) return false;
+  const { name, amount } = value as Record<string, unknown>;
+  return typeof name === "string" && typeof amount === "string";
 }
 
 export async function structureRecipe(caption: string): Promise<StructuredRecipe | null> {
@@ -73,14 +90,20 @@ export async function structureRecipe(caption: string): Promise<StructuredRecipe
     if (typeof output !== "object" || output === null) return null;
     const { title, category, ingredients } = output as Record<string, unknown>;
 
+    const items = (Array.isArray(ingredients) ? ingredients : []).filter(isIngredientItem);
+    const names = normalizeIngredients(items.map((item) => item.name)).slice(0, MAX_INGREDIENTS);
+    const ingredientAmounts: Record<string, string> = {};
+    for (const item of items) {
+      const name = item.name.trim();
+      const amount = truncateToCodePoints(item.amount.trim(), MAX_AMOUNT_LENGTH);
+      if (amount && names.includes(name)) ingredientAmounts[name] ??= amount;
+    }
+
     return {
       title: typeof title === "string" ? truncateToCodePoints(title.trim(), MAX_TITLE_LENGTH) : "",
       category: isCategory(category) ? category : null,
-      ingredients: Array.isArray(ingredients)
-        ? normalizeIngredients(
-            ingredients.filter((item): item is string => typeof item === "string"),
-          ).slice(0, MAX_INGREDIENTS)
-        : [],
+      ingredients: names,
+      ingredientAmounts,
     };
   } catch (err) {
     console.warn(

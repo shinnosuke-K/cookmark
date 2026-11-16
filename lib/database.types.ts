@@ -81,6 +81,8 @@ export interface Database {
           memo: string | null;
           /** 食材。カンマ区切りの文字列。未登録はnull */
           ingredients: string | null;
+          /** 食材ごとの分量。食材名 → 分量。分量なしはnull */
+          ingredient_amounts: Record<string, string> | null;
           photo_path: string | null;
           added_by: string;
           cooked_at: string | null;
@@ -99,6 +101,7 @@ export interface Database {
           category?: RecipeCategory | null;
           memo?: string | null;
           ingredients?: string | null;
+          ingredient_amounts?: Record<string, string> | null;
           photo_path?: string | null;
           added_by: string;
           cooked_at?: string | null;
@@ -117,6 +120,7 @@ export interface Database {
           category?: RecipeCategory | null;
           memo?: string | null;
           ingredients?: string | null;
+          ingredient_amounts?: Record<string, string> | null;
           photo_path?: string | null;
           added_by?: string;
           cooked_at?: string | null;

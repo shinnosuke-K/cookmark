@@ -49,6 +49,7 @@ export async function GET(request: NextRequest) {
       title: structured?.title || parsed.title,
       category: structured?.category ?? null,
       ingredients: structured?.ingredients ?? [],
+      ingredientAmounts: structured?.ingredientAmounts ?? {},
     },
     { headers: { "Cache-Control": "no-store" } },
   );
