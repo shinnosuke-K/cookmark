@@ -8,6 +8,12 @@ const withSerwist = withSerwistInit({
 });
 
 const nextConfig: NextConfig = {
+  // Claudeに渡すプロンプト(lib/prompts/*.txt)を文字列として import できるようにする。
+  // ビルド時にバンドルへ埋め込まれるので、実行時のファイル読み込みは発生しない。
+  webpack(config) {
+    config.module.rules.push({ test: /\.txt$/, type: "asset/source" });
+    return config;
+  },
   async headers() {
     return [
       {

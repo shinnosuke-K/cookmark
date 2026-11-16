@@ -118,6 +118,7 @@ lib/
   instagram.ts          # URL解析(shortcode抽出)+ OGデータ取得
   instagram-embed.ts    # embedページのHTML解析(サーバー側)
   recipe-structurer.ts  # キャプションから料理名・カテゴリ・食材をClaudeで抽出(サーバー側)
+  prompts/              # Claudeに渡すプロンプト本文(.txt)。next.config.tsのwebpackルールで文字列としてimportする
   categories.ts / database.types.ts
 components/
   RecipeCard / ArchiveRecipeCard / RecipeThumbnail   # リスト行とサムネイル
