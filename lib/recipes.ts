@@ -6,7 +6,7 @@ import {
 } from "@tanstack/react-query";
 import { supabase } from "./supabase";
 import type { Member } from "./board";
-import type { Database, RecipeCategory, RecipeVerdict } from "./database.types";
+import type { Database, RecipeCategory, RecipeVerdict, Seasoning } from "./database.types";
 
 export type Recipe = Database["public"]["Tables"]["recipes"]["Row"];
 
@@ -179,6 +179,8 @@ export interface AddRecipeInput {
   ingredients?: string | null;
   /** 食材ごとの分量(食材名 → 分量)。Instagram自動取得で得られた場合のみ指定する。 */
   ingredientAmounts?: Record<string, string> | null;
+  /** 調味料と分量。Instagram自動取得で得られた場合のみ指定する。 */
+  seasonings?: Seasoning[] | null;
   /** Instagram自動取得(ベストエフォート)のキャプションを添えて登録する場合のみ指定する。 */
   memo?: string | null;
 }
@@ -196,6 +198,7 @@ export async function addRecipe(input: AddRecipeInput): Promise<Recipe> {
       post_shortcode: input.postShortcode,
       ingredients: input.ingredients ?? null,
       ingredient_amounts: input.ingredientAmounts ?? null,
+      seasonings: input.seasonings ?? null,
       memo: input.memo ?? null,
       status: "todo",
     })

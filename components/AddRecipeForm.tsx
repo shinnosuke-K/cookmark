@@ -233,6 +233,8 @@ export function AddRecipeForm({
         postShortcode: parsed?.shortcode ?? null,
         ingredients: joinIngredients(ingredients),
         ingredientAmounts: pickIngredientAmounts(ingredients, ingredientAmounts),
+        // 調味料はフォームには出さず、キャプションと同じく自動取得の結果をそのまま保存する。
+        seasonings: ogData?.seasonings.length ? ogData.seasonings : null,
         memo: ogData?.caption
           ? truncateToCodePoints(ogData.caption, OG_CAPTION_MAX_LENGTH)
           : null,

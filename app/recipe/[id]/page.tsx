@@ -357,6 +357,20 @@ export default function RecipeDetailPage() {
           />
         </div>
 
+        {recipe.seasonings && recipe.seasonings.length > 0 && (
+          <div>
+            <span className="ck-label">調味料</span>
+            <ul className="flex flex-wrap gap-x-4 gap-y-1 text-[15px]">
+              {recipe.seasonings.map((item, index) => (
+                <li key={index}>
+                  {item.name}
+                  {item.amount && <span className="ml-1.5 opacity-60">{item.amount}</span>}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         <div>
           <label className="ck-label" htmlFor="detail-memo">
             メモ

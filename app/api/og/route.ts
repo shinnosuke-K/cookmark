@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
   const [parsed, member] = await Promise.all([fetchEmbed(shortcode), isBoardMember(request)]);
   if (!parsed) return unavailable();
 
-  // Claudeでの構造化(料理名・カテゴリ・食材)はボードのメンバーにだけ行う。メンバーで
+  // Claudeでの構造化(料理名・カテゴリ・食材・調味料)はボードのメンバーにだけ行う。メンバーで
   // ない場合や構造化に失敗した場合は、正規表現で得た結果だけを返す。
   const structured = member ? await structureRecipe(parsed.caption) : null;
 
@@ -50,6 +50,7 @@ export async function GET(request: NextRequest) {
       category: structured?.category ?? null,
       ingredients: structured?.ingredients ?? [],
       ingredientAmounts: structured?.ingredientAmounts ?? {},
+      seasonings: structured?.seasonings ?? [],
     },
     { headers: { "Cache-Control": "no-store" } },
   );

@@ -1,11 +1,11 @@
-// Instagram投稿のキャプションから料理名・カテゴリ・食材(と分量)をClaudeで抜き出すサーバー専用
+// Instagram投稿のキャプションから料理名・カテゴリ・食材・調味料(と分量)をClaudeで抜き出すサーバー専用
 // ユーティリティ。自動取得の一部なのでベストエフォート: APIキー未設定・タイムアウト・
 // 拒否・想定外の出力はすべてnullを返し、呼び出し側(app/api/og/route.ts)は正規表現で
 // 得た結果にフォールバックする(この関数は例外を投げない)。
 
 import Anthropic from "@anthropic-ai/sdk";
 import { CATEGORIES } from "./categories";
-import type { RecipeCategory } from "./database.types";
+import type { RecipeCategory, Seasoning } from "./database.types";
 import { normalizeIngredients } from "./ingredients";
 import { truncateToCodePoints } from "./instagram-embed";
 import promptTemplate from "./prompts/recipe-structurer.txt";
@@ -16,6 +16,8 @@ const REQUEST_TIMEOUT_MS = 8000;
 const MAX_TITLE_LENGTH = 80;
 const MAX_INGREDIENTS = 8;
 const MAX_AMOUNT_LENGTH = 20;
+const MAX_SEASONINGS = 15;
+const MAX_SEASONING_NAME_LENGTH = 20;
 const UNKNOWN_CATEGORY = "不明";
 
 export interface StructuredRecipe {
@@ -25,6 +27,8 @@ export interface StructuredRecipe {
   ingredients: string[];
   /** 食材名 → 分量。キャプションに分量の記載があった食材のみ。 */
   ingredientAmounts: Record<string, string>;
+  /** 調味料と分量(記載順)。 */
+  seasonings: Seasoning[];
 }
 
 // プロンプト本文は lib/prompts/recipe-structurer.txt で管理する。カテゴリの一覧などコードと
@@ -33,24 +37,28 @@ const SYSTEM_PROMPT = promptTemplate
   .trim()
   .replace("{{categories}}", `「${CATEGORIES.join("」「")}」`)
   .replace("{{unknownCategory}}", UNKNOWN_CATEGORY)
-  .replace("{{maxIngredients}}", String(MAX_INGREDIENTS));
+  .replace("{{maxIngredients}}", String(MAX_INGREDIENTS))
+  .replace("{{maxSeasonings}}", String(MAX_SEASONINGS));
+
+const NAME_AMOUNT_LIST_SCHEMA = {
+  type: "array",
+  items: {
+    type: "object",
+    properties: { name: { type: "string" }, amount: { type: "string" } },
+    required: ["name", "amount"],
+    additionalProperties: false,
+  },
+};
 
 const OUTPUT_SCHEMA = {
   type: "object",
   properties: {
     title: { type: "string" },
     category: { type: "string", enum: [...CATEGORIES, UNKNOWN_CATEGORY] },
-    ingredients: {
-      type: "array",
-      items: {
-        type: "object",
-        properties: { name: { type: "string" }, amount: { type: "string" } },
-        required: ["name", "amount"],
-        additionalProperties: false,
-      },
-    },
+    ingredients: NAME_AMOUNT_LIST_SCHEMA,
+    seasonings: NAME_AMOUNT_LIST_SCHEMA,
   },
-  required: ["title", "category", "ingredients"],
+  required: ["title", "category", "ingredients", "seasonings"],
   additionalProperties: false,
 };
 
@@ -60,7 +68,7 @@ function isCategory(value: unknown): value is RecipeCategory {
   return (CATEGORIES as unknown[]).includes(value);
 }
 
-function isIngredientItem(value: unknown): value is { name: string; amount: string } {
+function isNameAmount(value: unknown): value is { name: string; amount: string } {
   if (typeof value !== "object" || value === null) return false;
   const { name, amount } = value as Record<string, unknown>;
   return typeof name === "string" && typeof amount === "string";
@@ -88,9 +96,9 @@ export async function structureRecipe(caption: string): Promise<StructuredRecipe
     if (!text) return null;
     const output: unknown = JSON.parse(text);
     if (typeof output !== "object" || output === null) return null;
-    const { title, category, ingredients } = output as Record<string, unknown>;
+    const { title, category, ingredients, seasonings } = output as Record<string, unknown>;
 
-    const items = (Array.isArray(ingredients) ? ingredients : []).filter(isIngredientItem);
+    const items = (Array.isArray(ingredients) ? ingredients : []).filter(isNameAmount);
     const names = normalizeIngredients(items.map((item) => item.name)).slice(0, MAX_INGREDIENTS);
     const ingredientAmounts: Record<string, string> = {};
     for (const item of items) {
@@ -104,6 +112,14 @@ export async function structureRecipe(caption: string): Promise<StructuredRecipe
       category: isCategory(category) ? category : null,
       ingredients: names,
       ingredientAmounts,
+      seasonings: (Array.isArray(seasonings) ? seasonings : [])
+        .filter(isNameAmount)
+        .map((item) => ({
+          name: truncateToCodePoints(item.name.trim(), MAX_SEASONING_NAME_LENGTH),
+          amount: truncateToCodePoints(item.amount.trim(), MAX_AMOUNT_LENGTH),
+        }))
+        .filter((item) => item.name !== "")
+        .slice(0, MAX_SEASONINGS),
     };
   } catch (err) {
     console.warn(
