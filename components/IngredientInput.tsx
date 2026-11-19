@@ -14,6 +14,8 @@ interface IngredientInputProps {
   boardId: string | undefined;
   value: string[];
   onChange: (next: string[]) => void;
+  /** 食材名 → 分量。あればチップの食材名に添えて表示する(表示のみで、ここでは編集しない)。 */
+  amounts?: Record<string, string> | null;
   /** ラベルの htmlFor と対応させるための入力欄のid。 */
   inputId: string;
 }
@@ -27,6 +29,7 @@ export function IngredientInput({
   boardId,
   value,
   onChange,
+  amounts,
   inputId,
 }: IngredientInputProps) {
   const [draft, setDraft] = useState("");
@@ -102,6 +105,7 @@ export function IngredientInput({
             }}
           >
             {item}
+            {amounts?.[item] && <span className="opacity-60">{amounts[item]}</span>}
             <XCircle size={15} weight="duotone" />
           </button>
         ))}

@@ -17,7 +17,7 @@ InstagramのDMでレシピを送り合うと「どれを作ったか/まだか�
 - **入力ゼロでも探せる**。自動で付く情報(ステータス・追加者・日付)だけで絞り込みが成立すること。タグは固定チップの任意入力のみ
 - **静かな道具**。通知なし。リアルタイム同期なし。開いたときに最新であればよい
 - **Instagram連携はベストエフォート**。自動取得が失敗しても手動入力で常に成立する二段構え
-- **完全無料で運用**。有料サービス・独自ドメインは使わない
+- **完全無料で運用**。有料サービス・独自ドメインは使わない。Claude APIだけは例外で、Claude Maxプランに毎月付与されるAPIクレジットの範囲で使う(Consoleの自動リロードは無効のままにし、付与分を使い切ったら自動取得が正規表現の結果へ戻るだけにする)
 
 ## ユーザーとスコープ
 
@@ -36,8 +36,9 @@ InstagramのDMでレシピを送り合うと「どれを作ったか/まだか�
 | UI | Tailwind CSS v4 | 新聞紙面風「Broadsheet」デザイン(Source Serif 4 + Phosphor Icons duotone)。シート・トースト・確認ダイアログは自作の軽量コンポーネント |
 | PWA | Serwist (@serwist/next) | next-pwaは使わない(メンテ停滞のため)。オフラインキャッシュは頑張らない |
 | 画像圧縮 | browser-image-compression | アップロード前に長辺1200px / quality 0.8 に圧縮 |
+| レシピ情報の構造化 | Claude API (@anthropic-ai/sdk) | `claude-haiku-5-5`。`/api/og` の中からのみ呼ぶ。キーはサーバー専用の環境変数 `ANTHROPIC_API_KEY` |
 
-APIルート(Route Handler)は原則不要。例外はInstagram取得プロキシ `/api/og` と画像プロキシ `/api/og/image`(実装済み。ベストエフォート機能で、同一オリジン以外からの呼び出しは403)。
+APIルート(Route Handler)は原則不要。例外はInstagram取得プロキシ `/api/og` と画像プロキシ `/api/og/image`(実装済み。ベストエフォート機能で、同一オリジン以外からの呼び出しは403)。`/api/og` のClaude呼び出しは従量課金なので、リクエストのアクセストークンでボードのメンバーと確認できた場合にだけ行う(`app/api/og/board-member.ts`)。
 
 ## データモデル
 
@@ -75,7 +76,10 @@ create table recipes (
   added_by uuid not null,                -- members.id
   cooked_at timestamptz,
   created_at timestamptz not null default now(),
-  cook_count integer not null default 0  -- 作った回数(「また作った!」で加算)
+  cook_count integer not null default 0, -- 作った回数(「また作った!」で加算)
+  ingredients text,                      -- 食材名のカンマ区切り(検索・「よく使う」候補の集計元)
+  ingredient_amounts jsonb,              -- 食材名 → 分量。自動取得で得た分量の表示専用
+  seasonings jsonb                       -- 調味料と分量の配列 [{name, amount}]。自動取得の表示専用
 );
 ```
 
@@ -110,12 +114,14 @@ app/
   join/[token]/page.tsx # 招待URL → JoinScreen → ホームへ
   recipe/[id]/page.tsx  # 詳細(embed遅延ロード、編集・評価変更・また作った!・削除)
   settings/page.tsx     # 表示名、招待URLの表示・コピー・再発行
-  api/og/               # Instagram取得プロキシ(route.ts / image/route.ts / same-origin.ts)
+  api/og/               # Instagram取得プロキシ(route.ts / image/route.ts / same-origin.ts / board-member.ts)
 lib/
   supabase.ts           # クライアント生成 + 匿名サインイン
   board.ts / recipes.ts / photos.ts  # TanStack Queryフックとミューテーション
   instagram.ts          # URL解析(shortcode抽出)+ OGデータ取得
   instagram-embed.ts    # embedページのHTML解析(サーバー側)
+  recipe-structurer.ts  # キャプションから料理名・カテゴリ・食材をClaudeで抽出(サーバー側)
+  prompts/              # Claudeに渡すプロンプト本文(.txt)。next.config.tsのwebpackルールで文字列としてimportする
   categories.ts / database.types.ts
 components/
   RecipeCard / ArchiveRecipeCard / RecipeThumbnail   # リスト行とサムネイル
@@ -138,8 +144,8 @@ components/
 
 - **表示**: 詳細画面でのみ `https://www.instagram.com/p/{shortcode}/embed/captioned/` をiframeで遅延ロード。リスト画面ではiframeを使わない(重いため)。リストのサムネイルは、ユーザーがアップした写真があればそれを表示、なければプレースホルダー
 - **URL解析**: 貼り付けテキストから `instagram\.com\/(p|reel|reels)\/([\w-]+)` でshortcodeを抽出。クエリパラメータや共有用の余分な文字列は除去
-- **自動取得**: 追加時に `/api/og`(embed/captionedページのサーバー側解析)でタイトル・投稿者・キャプション・画像をベストエフォートで取得する。タイトル/投稿者は未入力の間だけ事前入力し、キャプションはメモへ、画像は圧縮してサムネイルとして自動添付する。URL欄への手入力・貼り付けでも600msデバウンスで取得が走る
-- **フォールバック**: 解析失敗・自動取得失敗・embed表示失敗はエラーにせず、タイトル手入力のフォームに自然に流す。**自動取得はベストエフォート、手動が常に効く**
+- **自動取得**: 追加時に `/api/og`(embed/captionedページのサーバー側解析)でタイトル・投稿者・キャプション・画像をベストエフォートで取得する。続けてキャプションをClaudeに渡し、料理名・カテゴリ・食材と食材ごとの分量を構造化する(出力はJSONスキーマで固定し、ツールは持たせない)。分量は食材チップに添えて表示するだけで、手入力・編集はできない(チップを消すとその分量も消える)。調味料と分量は食材とは別に保存し(検索や「よく使う」候補に混ぜないため)、詳細画面に読み取り専用で表示する。タイトル/投稿者/カテゴリ/食材は未入力の間だけ事前入力し、キャプションはメモへ、画像は圧縮してサムネイルとして自動添付する。URL欄への手入力・貼り付けでも600msデバウンスで取得が走る
+- **フォールバック**: 解析失敗・自動取得失敗・embed表示失敗はエラーにせず、タイトル手入力のフォームに自然に流す。Claudeでの構造化が失敗・タイムアウト(8秒)した場合は、正規表現で得た結果(キャプション1行目をタイトルにする)をそのまま返す。**自動取得はベストエフォート、手動が常に効く**
 - タイトルは追加時に必須(自動取得は補助。プレースホルダーで「例: 鶏むね肉のねぎ塩レモン」のように促す)
 
 ## クリップボード検知の実装方針

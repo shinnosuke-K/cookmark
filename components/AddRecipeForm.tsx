@@ -7,7 +7,7 @@ import { CategoryChips } from "./CategoryChips";
 import { IngredientInput } from "./IngredientInput";
 import { Sheet } from "./Sheet";
 import { useToast } from "./Toast";
-import { joinIngredients } from "@/lib/ingredients";
+import { joinIngredients, pickIngredientAmounts } from "@/lib/ingredients";
 import { fetchOgData, parseInstagramUrl, type OgData } from "@/lib/instagram";
 import { uploadRecipePhoto } from "@/lib/photos";
 import {
@@ -67,6 +67,9 @@ export function AddRecipeForm({
     initial.category,
   );
   const [ingredients, setIngredients] = useState<string[]>([]);
+  // 自動取得で得た分量(食材名 → 分量)。チップに添えて表示し、追加確定時に
+  // チップに残っている食材の分だけ保存する。
+  const [ingredientAmounts, setIngredientAmounts] = useState<Record<string, string>>({});
   const addRecipe = useAddRecipe();
   const updateRecipe = useUpdateRecipe();
 
@@ -78,18 +81,20 @@ export function AddRecipeForm({
 
   // Instagram自動取得(ベストエフォート)。フォームが開いた時点のURLにshortcodeが
   // 含まれていれば、フォームをブロックせずバックグラウンドで取得する。結果は
-  // タイトル・投稿者が未入力のときだけ流し込み、キャプション・画像URLは追加確定時の
+  // タイトル・投稿者・カテゴリ・食材が未入力のときだけ流し込み、キャプション・画像URLは追加確定時の
   // 後処理(handleSubmit)で使うためrefに保持しておく。
   const ogDataRef = useRef<OgData | null>(null);
   // 直近に取得済み(または取得中)のshortcode。同じshortcodeへの再取得や、
   // 後から来た古いリクエストのレスポンスで新しい入力を上書きしてしまうのを防ぐ。
   const lastFetchedShortcodeRef = useRef<string | null>(null);
-  // タイトル・投稿者ハンドルについて「直近に自動入力した値」。ユーザーがこの値から
-  // 手で書き換えていない(=フィールドの現在値がこの値と一致している)間だけ、次の
-  // 自動取得結果で上書きしてよいと判断する。手で編集した時点でユーザー所有になり、
+  // タイトル・投稿者ハンドル・カテゴリ・食材について「直近に自動入力した値」。ユーザーが
+  // この値から手で書き換えていない(=フィールドの現在値がこの値と一致している)間だけ、
+  // 次の自動取得結果で上書きしてよいと判断する。手で編集した時点でユーザー所有になり、
   // 以降どのfetchが完了しても上書きしない。
   const autoFilledTitleRef = useRef<string | null>(null);
   const autoFilledAuthorHandleRef = useRef<string | null>(null);
+  const autoFilledCategoryRef = useRef<RecipeCategory | null>(null);
+  const autoFilledIngredientsRef = useRef<string[] | null>(null);
 
   const applyOgData = useCallback((data: OgData) => {
     ogDataRef.current = data;
@@ -107,6 +112,26 @@ export function AddRecipeForm({
         if (ownedByUser) return prev;
         autoFilledAuthorHandleRef.current = handle;
         return handle;
+      });
+    }
+    const suggestedCategory = data.category;
+    if (suggestedCategory) {
+      setCategory((prev) => {
+        const ownedByUser = prev !== null && prev !== autoFilledCategoryRef.current;
+        if (ownedByUser) return prev;
+        autoFilledCategoryRef.current = suggestedCategory;
+        return suggestedCategory;
+      });
+    }
+    if (data.ingredients.length > 0) {
+      // 分量は食材名で引くだけなので、手入力の食材が優先された場合に置き換えても害はない。
+      setIngredientAmounts(data.ingredientAmounts);
+      setIngredients((prev) => {
+        const ownedByUser =
+          prev.length > 0 && prev.join("\n") !== autoFilledIngredientsRef.current?.join("\n");
+        if (ownedByUser) return prev;
+        autoFilledIngredientsRef.current = data.ingredients;
+        return data.ingredients;
       });
     }
   }, []);
@@ -207,6 +232,9 @@ export function AddRecipeForm({
         instagramUrl: parsed?.cleanUrl ?? null,
         postShortcode: parsed?.shortcode ?? null,
         ingredients: joinIngredients(ingredients),
+        ingredientAmounts: pickIngredientAmounts(ingredients, ingredientAmounts),
+        // 調味料はフォームには出さず、キャプションと同じく自動取得の結果をそのまま保存する。
+        seasonings: ogData?.seasonings.length ? ogData.seasonings : null,
         memo: ogData?.caption
           ? truncateToCodePoints(ogData.caption, OG_CAPTION_MAX_LENGTH)
           : null,
@@ -309,6 +337,7 @@ export function AddRecipeForm({
             boardId={boardId}
             value={ingredients}
             onChange={setIngredients}
+            amounts={ingredientAmounts}
             inputId="add-ingredients"
           />
         </div>
