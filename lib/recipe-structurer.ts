@@ -1,9 +1,11 @@
 // Instagram投稿のキャプションから料理名・カテゴリ・食材・調味料(と分量)をClaudeで抜き出すサーバー専用
-// ユーティリティ。自動取得の一部なのでベストエフォート: APIキー未設定・タイムアウト・
+// ユーティリティ。自動取得の一部なのでベストエフォート: 認証の未設定・失敗、タイムアウト、
 // 拒否・想定外の出力はすべてnullを返し、呼び出し側(app/api/og/route.ts)は正規表現で
 // 得た結果にフォールバックする(この関数は例外を投げない)。
 
 import Anthropic from "@anthropic-ai/sdk";
+import { oidcFederationProvider } from "@anthropic-ai/sdk/lib/credentials/oidc-federation";
+import { getVercelOidcToken } from "@vercel/oidc";
 import { CATEGORIES } from "./categories";
 import type { RecipeCategory, Seasoning } from "./database.types";
 import { normalizeIngredients } from "./ingredients";
@@ -62,7 +64,48 @@ const OUTPUT_SCHEMA = {
   additionalProperties: false,
 };
 
+const ANTHROPIC_BASE_URL = "https://api.anthropic.com";
+const TOKEN_EXCHANGE_TIMEOUT_MS = 5000;
+
 let client: Anthropic | null = null;
+
+/**
+ * Claude APIのクライアントを作る。認証は2通りで、どちらも設定が無ければnull(構造化しない)。
+ *
+ * - 本番(Vercel): Workload Identity Federation。Vercelが関数に発行する短命のOIDCトークンを
+ *   Anthropicのアクセストークンに交換する。長期間有効なAPIキーをVercelに置かずに済み、
+ *   Anthropic側のルールで「このプロジェクトのproduction環境」だけに絞れる。
+ *   `ANTHROPIC_FEDERATION_RULE_ID` と `ANTHROPIC_ORGANIZATION_ID` があればこちらを使う
+ *   (どちらもIDであって秘密ではない)。
+ * - ローカル開発: `.env.local` の `ANTHROPIC_API_KEY`。
+ */
+function createClient(): Anthropic | null {
+  const options = { timeout: REQUEST_TIMEOUT_MS, maxRetries: 0 };
+  const federationRuleId = process.env.ANTHROPIC_FEDERATION_RULE_ID;
+  const organizationId = process.env.ANTHROPIC_ORGANIZATION_ID;
+
+  if (federationRuleId && organizationId) {
+    return new Anthropic({
+      ...options,
+      // credentials を渡すと、SDKは環境変数のAPIキーを読まず、交換したトークンを
+      // 期限までキャッシュして使い回す。
+      credentials: oidcFederationProvider({
+        // トークンはリクエストごとにVercelから届くので、交換のたびに取り直す。
+        identityTokenProvider: () => getVercelOidcToken(),
+        federationRuleId,
+        organizationId,
+        serviceAccountId: process.env.ANTHROPIC_SERVICE_ACCOUNT_ID,
+        workspaceId: process.env.ANTHROPIC_WORKSPACE_ID,
+        baseURL: ANTHROPIC_BASE_URL,
+        // SDKのトークン交換にはタイムアウトが無いので、ここで付ける(超えたら正規表現の結果で返す)。
+        fetch: (input, init) =>
+          fetch(input, { ...init, signal: AbortSignal.timeout(TOKEN_EXCHANGE_TIMEOUT_MS) }),
+      }),
+    });
+  }
+
+  return process.env.ANTHROPIC_API_KEY ? new Anthropic(options) : null;
+}
 
 function isCategory(value: unknown): value is RecipeCategory {
   return (CATEGORIES as unknown[]).includes(value);
@@ -75,8 +118,9 @@ function isNameAmount(value: unknown): value is { name: string; amount: string }
 }
 
 export async function structureRecipe(caption: string): Promise<StructuredRecipe | null> {
-  if (!process.env.ANTHROPIC_API_KEY || caption.trim() === "") return null;
-  client ??= new Anthropic({ timeout: REQUEST_TIMEOUT_MS, maxRetries: 0 });
+  if (caption.trim() === "") return null;
+  client ??= createClient();
+  if (!client) return null;
 
   try {
     const response = await client.messages.create({

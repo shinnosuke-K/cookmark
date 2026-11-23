@@ -36,9 +36,9 @@ InstagramのDMでレシピを送り合うと「どれを作ったか/まだか�
 | UI | Tailwind CSS v4 | 新聞紙面風「Broadsheet」デザイン(Source Serif 4 + Phosphor Icons duotone)。シート・トースト・確認ダイアログは自作の軽量コンポーネント |
 | PWA | Serwist (@serwist/next) | next-pwaは使わない(メンテ停滞のため)。オフラインキャッシュは頑張らない |
 | 画像圧縮 | browser-image-compression | アップロード前に長辺1200px / quality 0.8 に圧縮 |
-| レシピ情報の構造化 | Claude API (@anthropic-ai/sdk) | `claude-haiku-5-5`。`/api/og` の中からのみ呼ぶ。キーはサーバー専用の環境変数 `ANTHROPIC_API_KEY` |
+| レシピ情報の構造化 | Claude API (@anthropic-ai/sdk) | `claude-haiku-5-5`。`/api/og` の中からのみ呼ぶ。認証は本番がWorkload Identity Federation(Vercelが発行するOIDCトークンを `@vercel/oidc` で取得し、Anthropicの短命トークンに交換)、ローカル開発が `.env.local` の `ANTHROPIC_API_KEY` |
 
-APIルート(Route Handler)は原則不要。例外はInstagram取得プロキシ `/api/og` と画像プロキシ `/api/og/image`(実装済み。ベストエフォート機能で、同一オリジン以外からの呼び出しは403)。どちらもボードのメンバー限定で、リクエストのアクセストークンでメンバーと確認できなければ401を返す(`app/api/og/board-member.ts`)。同一オリジン検査はヘッダーの偽装で通るため、Instagramへの中継と従量課金のClaude呼び出しを第三者に使わせないための本当のゲートはこちら。依存パッケージは `package-lock.json` をコミットして固定する(サーバーがAPIキーを持つため、ビルドごとに未確認の新しい版を取り込まない)。
+APIルート(Route Handler)は原則不要。例外はInstagram取得プロキシ `/api/og` と画像プロキシ `/api/og/image`(実装済み。ベストエフォート機能で、同一オリジン以外からの呼び出しは403)。どちらもボードのメンバー限定で、リクエストのアクセストークンでメンバーと確認できなければ401を返す(`app/api/og/board-member.ts`)。同一オリジン検査はヘッダーの偽装で通るため、Instagramへの中継と従量課金のClaude呼び出しを第三者に使わせないための本当のゲートはこちら。VercelにはClaudeのAPIキーを置かない。本番は `ANTHROPIC_FEDERATION_RULE_ID` / `ANTHROPIC_ORGANIZATION_ID`(と任意で `ANTHROPIC_SERVICE_ACCOUNT_ID` / `ANTHROPIC_WORKSPACE_ID`)をProduction環境にだけ設定し、Anthropic側のフェデレーションルールで「このプロジェクトのproduction環境」のトークンだけを受け付ける(プレビューデプロイからは交換できない)。依存パッケージは `package-lock.json` をコミットして固定する(サーバーがAPIキーを持つため、ビルドごとに未確認の新しい版を取り込まない)。
 
 ## データモデル
 
@@ -145,7 +145,7 @@ components/
 - **表示**: 詳細画面でのみ `https://www.instagram.com/p/{shortcode}/embed/captioned/` をiframeで遅延ロード。リスト画面ではiframeを使わない(重いため)。リストのサムネイルは、ユーザーがアップした写真があればそれを表示、なければプレースホルダー
 - **URL解析**: 貼り付けテキストから `instagram\.com\/(p|reel|reels)\/([\w-]+)` でshortcodeを抽出。クエリパラメータや共有用の余分な文字列は除去
 - **自動取得**: 追加時に `/api/og`(embed/captionedページのサーバー側解析)でタイトル・投稿者・キャプション・画像をベストエフォートで取得する。続けてキャプションをClaudeに渡し、料理名・カテゴリ・食材と食材ごとの分量を構造化する(出力はJSONスキーマで固定し、ツールは持たせない)。分量は食材チップに添えて表示するだけで、手入力・編集はできない(チップを消すとその分量も消える)。調味料と分量は食材とは別に保存し(検索や「よく使う」候補に混ぜないため)、詳細画面に読み取り専用で表示する。タイトル/投稿者/カテゴリ/食材は未入力の間だけ事前入力し、キャプションはメモへ、画像は圧縮してサムネイルとして自動添付する。URL欄への手入力・貼り付けでも600msデバウンスで取得が走る
-- **フォールバック**: 解析失敗・自動取得失敗・embed表示失敗はエラーにせず、タイトル手入力のフォームに自然に流す。Claudeでの構造化が失敗・タイムアウト(8秒)した場合は、正規表現で得た結果(キャプション1行目をタイトルにする)をそのまま返す。**自動取得はベストエフォート、手動が常に効く**
+- **フォールバック**: 解析失敗・自動取得失敗・embed表示失敗はエラーにせず、タイトル手入力のフォームに自然に流す。Claudeでの構造化が認証の失敗を含めて失敗・タイムアウト(8秒)した場合は、正規表現で得た結果(キャプション1行目をタイトルにする)をそのまま返す。**自動取得はベストエフォート、手動が常に効く**
 - タイトルは追加時に必須(自動取得は補助。プレースホルダーで「例: 鶏むね肉のねぎ塩レモン」のように促す)
 
 ## クリップボード検知の実装方針
