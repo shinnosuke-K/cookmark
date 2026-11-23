@@ -50,3 +50,6 @@ next-env.d.ts
 
 # design handoff (do not commit)
 /docs/design_handoff_cookmark_ui/
+
+# lockfile はコミットする(グローバルの gitignore で除外されていても追跡する)
+!package-lock.json

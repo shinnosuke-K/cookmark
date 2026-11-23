@@ -1,13 +1,15 @@
 import { createClient } from "@supabase/supabase-js";
-import type { NextRequest } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import type { Database } from "@/lib/database.types";
 
 const MEMBER_CHECK_TIMEOUT_MS = 3000;
 
 /**
  * 呼び出し元がいずれかのボードのメンバーかを、リクエストのアクセストークンで確かめる。
- * Claude APIの呼び出し(従量課金)をメンバーだけに限るためのゲート。匿名認証は誰でも
- * サインインできるので、トークンが有効なだけでは通さない。membersのRLSは「自分が
+ * /api/og 系(Instagramへの中継と、従量課金のClaude API呼び出し)をメンバーだけに限る
+ * ためのゲート。同一オリジン検査はヘッダーを偽装すれば通るので、それだけでは第三者に
+ * 中継の踏み台として使われうる。匿名認証は誰でもサインインできるので、トークンが有効な
+ * だけでは通さない。membersのRLSは「自分が
  * 所属するボードの行」しか返さないため、呼び出し元のトークンでselectして1行でも
  * 返ればメンバーと判断できる(無効なトークンはPostgRESTがエラーにする)。
  */
@@ -31,4 +33,11 @@ export async function isBoardMember(request: NextRequest): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+export function unauthorized() {
+  return NextResponse.json(
+    { error: "unauthorized" },
+    { status: 401, headers: { "Cache-Control": "no-store" } },
+  );
 }

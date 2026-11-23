@@ -38,7 +38,7 @@ InstagramのDMでレシピを送り合うと「どれを作ったか/まだか�
 | 画像圧縮 | browser-image-compression | アップロード前に長辺1200px / quality 0.8 に圧縮 |
 | レシピ情報の構造化 | Claude API (@anthropic-ai/sdk) | `claude-haiku-5-5`。`/api/og` の中からのみ呼ぶ。キーはサーバー専用の環境変数 `ANTHROPIC_API_KEY` |
 
-APIルート(Route Handler)は原則不要。例外はInstagram取得プロキシ `/api/og` と画像プロキシ `/api/og/image`(実装済み。ベストエフォート機能で、同一オリジン以外からの呼び出しは403)。`/api/og` のClaude呼び出しは従量課金なので、リクエストのアクセストークンでボードのメンバーと確認できた場合にだけ行う(`app/api/og/board-member.ts`)。
+APIルート(Route Handler)は原則不要。例外はInstagram取得プロキシ `/api/og` と画像プロキシ `/api/og/image`(実装済み。ベストエフォート機能で、同一オリジン以外からの呼び出しは403)。どちらもボードのメンバー限定で、リクエストのアクセストークンでメンバーと確認できなければ401を返す(`app/api/og/board-member.ts`)。同一オリジン検査はヘッダーの偽装で通るため、Instagramへの中継と従量課金のClaude呼び出しを第三者に使わせないための本当のゲートはこちら。依存パッケージは `package-lock.json` をコミットして固定する(サーバーがAPIキーを持つため、ビルドごとに未確認の新しい版を取り込まない)。
 
 ## データモデル
 

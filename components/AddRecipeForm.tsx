@@ -8,7 +8,12 @@ import { IngredientInput } from "./IngredientInput";
 import { Sheet } from "./Sheet";
 import { useToast } from "./Toast";
 import { joinIngredients, pickIngredientAmounts } from "@/lib/ingredients";
-import { fetchOgData, parseInstagramUrl, type OgData } from "@/lib/instagram";
+import {
+  fetchOgData,
+  ogAuthHeaders,
+  parseInstagramUrl,
+  type OgData,
+} from "@/lib/instagram";
 import { uploadRecipePhoto } from "@/lib/photos";
 import {
   useAddRecipe,
@@ -192,7 +197,9 @@ export function AddRecipeForm({
   // バックグラウンドで行う。どこで失敗してもレシピ自体は正常に登録済みなので握りつぶす。
   async function attachOgPhoto(recipe: Recipe, imageUrl: string) {
     try {
-      const res = await fetch(`/api/og/image?url=${encodeURIComponent(imageUrl)}`);
+      const res = await fetch(`/api/og/image?url=${encodeURIComponent(imageUrl)}`, {
+        headers: await ogAuthHeaders(),
+      });
       if (!res.ok) return;
       const blob = await res.blob();
       const file = new File([blob], "instagram.jpg", { type: blob.type || "image/jpeg" });

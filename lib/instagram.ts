@@ -57,18 +57,25 @@ export interface OgData {
 const OG_FETCH_TIMEOUT_MS = 15000;
 
 /**
+ * `/api/og` 系はボードのメンバーしか呼べないため、サーバーがメンバーかどうかを
+ * 確かめられるよう、現在のセッションのアクセストークンを添える。
+ */
+export async function ogAuthHeaders(): Promise<HeadersInit | undefined> {
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  return token ? { Authorization: `Bearer ${token}` } : undefined;
+}
+
+/**
  * サーバー側プロキシ `/api/og` 経由で、Instagram投稿のタイトル・キャプション・
  * 投稿者・画像URL・カテゴリ・食材(と分量)をベストエフォートで取得する。あくまで自動取得は
  * 補助的な機能なので、失敗しても例外は投げずnullを返す(呼び出し側は常に手動入力に
- * フォールバックできる)。アクセストークンは、サーバーがボードのメンバーにだけ
- * Claudeでの構造化を行うために送る。
+ * フォールバックできる)。
  */
 export async function fetchOgData(shortcode: string): Promise<OgData | null> {
   try {
-    const { data } = await supabase.auth.getSession();
-    const token = data.session?.access_token;
     const res = await fetch(`/api/og?shortcode=${encodeURIComponent(shortcode)}`, {
-      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      headers: await ogAuthHeaders(),
       signal: AbortSignal.timeout(OG_FETCH_TIMEOUT_MS),
     });
     if (!res.ok) return null;
