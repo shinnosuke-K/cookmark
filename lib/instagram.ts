@@ -2,6 +2,9 @@
 // Meta公式APIは使わない方針のため、正規表現でベストエフォート抽出する(失敗しても
 // 呼び出し側は常に手動入力にフォールバックできる)。
 
+import type { RecipeCategory, Seasoning } from "./database.types";
+import { supabase } from "./supabase";
+
 const INSTAGRAM_URL_PATTERN = /instagram\.com\/(p|reel|reels)\/([\w-]+)/i;
 const HANDLE_PATTERN = /@([a-zA-Z0-9_.]+)/;
 
@@ -40,19 +43,39 @@ export interface OgData {
   caption: string;
   authorHandle: string | null;
   imageUrl: string;
+  /** Claudeが推定したカテゴリ。構造化できなかった場合はnull。 */
+  category: RecipeCategory | null;
+  /** Claudeが抜き出した主な食材。構造化できなかった場合は空配列。 */
+  ingredients: string[];
+  /** 食材ごとの分量(食材名 → 分量)。キャプションに分量の記載があった食材のみ。 */
+  ingredientAmounts: Record<string, string>;
+  /** 調味料と分量(記載順)。構造化できなかった場合は空配列。 */
+  seasonings: Seasoning[];
 }
 
-const OG_FETCH_TIMEOUT_MS = 6000;
+// サーバー側はInstagramの取得(最大5秒)のあとにClaudeでの構造化(最大8秒)を行う。
+const OG_FETCH_TIMEOUT_MS = 15000;
+
+/**
+ * `/api/og` 系はボードのメンバーしか呼べないため、サーバーがメンバーかどうかを
+ * 確かめられるよう、現在のセッションのアクセストークンを添える。
+ */
+export async function ogAuthHeaders(): Promise<HeadersInit | undefined> {
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  return token ? { Authorization: `Bearer ${token}` } : undefined;
+}
 
 /**
  * サーバー側プロキシ `/api/og` 経由で、Instagram投稿のタイトル・キャプション・
- * 投稿者・画像URLをベストエフォートで取得する。あくまで自動取得は補助的な機能
- * なので、失敗しても例外は投げずnullを返す(呼び出し側は常に手動入力にフォール
- * バックできる)。
+ * 投稿者・画像URL・カテゴリ・食材(と分量)をベストエフォートで取得する。あくまで自動取得は
+ * 補助的な機能なので、失敗しても例外は投げずnullを返す(呼び出し側は常に手動入力に
+ * フォールバックできる)。
  */
 export async function fetchOgData(shortcode: string): Promise<OgData | null> {
   try {
     const res = await fetch(`/api/og?shortcode=${encodeURIComponent(shortcode)}`, {
+      headers: await ogAuthHeaders(),
       signal: AbortSignal.timeout(OG_FETCH_TIMEOUT_MS),
     });
     if (!res.ok) return null;

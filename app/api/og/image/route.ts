@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { INSTAGRAM_EMBED_USER_AGENT, isAllowedImageUrl } from "@/lib/instagram-embed";
+import { isBoardMember, unauthorized } from "../board-member";
 import { forbidden, isSameOriginRequest } from "../same-origin";
 
 // /api/og が返す画像URL(Instagram CDN)をブラウザから直接叩けない場合の中継プロキシ。
@@ -33,6 +34,9 @@ export async function GET(request: NextRequest) {
   if (!url || !isAllowedImageUrl(url)) {
     return badRequest();
   }
+
+  // 中継できるのはボードのメンバーだけ(第三者に画像の中継として使わせない)。
+  if (!(await isBoardMember(request))) return unauthorized();
 
   try {
     const res = await fetch(url, {

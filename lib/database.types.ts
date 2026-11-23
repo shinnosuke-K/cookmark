@@ -10,6 +10,12 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[];
 
+/** 調味料1件。分量の記載が無ければ amount は空文字。 */
+export interface Seasoning {
+  name: string;
+  amount: string;
+}
+
 export type RecipeStatus = "todo" | "cooked";
 export type RecipeVerdict = "repeat" | "meh";
 export type RecipeCategory = "主菜" | "副菜" | "汁物" | "麺・丼" | "おやつ";
@@ -81,6 +87,10 @@ export interface Database {
           memo: string | null;
           /** 食材。カンマ区切りの文字列。未登録はnull */
           ingredients: string | null;
+          /** 食材ごとの分量。食材名 → 分量。分量なしはnull */
+          ingredient_amounts: Record<string, string> | null;
+          /** 調味料と分量(記載順)。なしはnull */
+          seasonings: Seasoning[] | null;
           photo_path: string | null;
           added_by: string;
           cooked_at: string | null;
@@ -99,6 +109,8 @@ export interface Database {
           category?: RecipeCategory | null;
           memo?: string | null;
           ingredients?: string | null;
+          ingredient_amounts?: Record<string, string> | null;
+          seasonings?: Seasoning[] | null;
           photo_path?: string | null;
           added_by: string;
           cooked_at?: string | null;
@@ -117,6 +129,8 @@ export interface Database {
           category?: RecipeCategory | null;
           memo?: string | null;
           ingredients?: string | null;
+          ingredient_amounts?: Record<string, string> | null;
+          seasonings?: Seasoning[] | null;
           photo_path?: string | null;
           added_by?: string;
           cooked_at?: string | null;

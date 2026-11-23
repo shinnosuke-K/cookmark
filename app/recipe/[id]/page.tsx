@@ -19,7 +19,11 @@ import { useToast } from "@/components/Toast";
 import { useBoardMembers } from "@/lib/recipes";
 import { useMyMember } from "@/lib/board";
 import type { RecipeCategory, RecipeVerdict } from "@/lib/database.types";
-import { joinIngredients, splitIngredients } from "@/lib/ingredients";
+import {
+  joinIngredients,
+  pickIngredientAmounts,
+  splitIngredients,
+} from "@/lib/ingredients";
 import {
   useCookAgain,
   useDeleteRecipe,
@@ -112,6 +116,8 @@ export default function RecipeDetailPage() {
         title: trimmedTitle,
         memo: memo.trim() || null,
         ingredients: joinIngredients(ingredients),
+        // 分量は表示専用。チップを消した食材の分だけ落として保存する。
+        ingredientAmounts: pickIngredientAmounts(ingredients, recipe.ingredient_amounts),
         category,
         ...(recipe.status === "cooked" ? { verdict } : {}),
       },
@@ -342,6 +348,7 @@ export default function RecipeDetailPage() {
           <IngredientInput
             boardId={recipe.board_id}
             value={ingredients}
+            amounts={recipe.ingredient_amounts}
             onChange={(next) => {
               setIngredients(next);
               setDirty(true);
@@ -349,6 +356,20 @@ export default function RecipeDetailPage() {
             inputId="detail-ingredients"
           />
         </div>
+
+        {recipe.seasonings && recipe.seasonings.length > 0 && (
+          <div>
+            <span className="ck-label">調味料</span>
+            <ul className="flex flex-wrap gap-x-4 gap-y-1 text-[15px]">
+              {recipe.seasonings.map((item, index) => (
+                <li key={index}>
+                  {item.name}
+                  {item.amount && <span className="ml-1.5 opacity-60">{item.amount}</span>}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         <div>
           <label className="ck-label" htmlFor="detail-memo">
