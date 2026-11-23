@@ -5,7 +5,7 @@ import {
   type ParsedEmbed,
 } from "@/lib/instagram-embed";
 import { structureRecipe } from "@/lib/recipe-structurer";
-import { isBoardMember } from "./board-member";
+import { isBoardMember, unauthorized } from "./board-member";
 import { forbidden, isSameOriginRequest } from "./same-origin";
 
 // Instagram投稿のタイトル・キャプション・投稿者・画像URLをベストエフォートで取得する
@@ -13,6 +13,7 @@ import { forbidden, isSameOriginRequest } from "./same-origin";
 // embed(captioned)ページのHTMLを取得してパースし、キャプションをClaudeに渡して
 // 料理名・カテゴリ・食材を構造化する。HTMLの取得・パースの失敗は常に404 JSONで返し、
 // クライアント側は例外を投げずにnullへフォールバックする(手動入力は常に成立する)。
+// 呼び出せるのはボードのメンバーだけ(同一オリジン検査に加えてアクセストークンで確認する)。
 export const dynamic = "force-dynamic";
 
 const SHORTCODE_PATTERN = /^[\w-]+$/;
@@ -36,12 +37,15 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const [parsed, member] = await Promise.all([fetchEmbed(shortcode), isBoardMember(request)]);
+  // メンバーと確認できるまでは、Instagramへの取得もClaudeの呼び出しも行わない。
+  if (!(await isBoardMember(request))) return unauthorized();
+
+  const parsed = await fetchEmbed(shortcode);
   if (!parsed) return unavailable();
 
-  // Claudeでの構造化(料理名・カテゴリ・食材・調味料)はボードのメンバーにだけ行う。メンバーで
-  // ない場合や構造化に失敗した場合は、正規表現で得た結果だけを返す。
-  const structured = member ? await structureRecipe(parsed.caption) : null;
+  // Claudeでの構造化(料理名・カテゴリ・食材・調味料)。失敗した場合は、正規表現で得た
+  // 結果だけを返す。
+  const structured = await structureRecipe(parsed.caption);
 
   return NextResponse.json(
     {
