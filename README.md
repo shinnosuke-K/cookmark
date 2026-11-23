@@ -53,14 +53,14 @@ URLはパス無しのオリジンだけを指定します(`/rest/v1` などを�
 
 ### 5. ローカルで動かす(クラウドのSupabaseを使う場合)
 
-Node.jsとSupabase CLIのバージョンは [mise](https://mise.jdx.dev/) で管理しています(`mise.toml`)。
+Node.js・Supabase CLI・Vercel CLIのバージョンは [mise](https://mise.jdx.dev/) で管理しています(`mise.toml`)。
 
 ```bash
 # 初回のみ: miseのインストールとシェルへの組み込み
 brew install mise
 echo 'eval "$(mise activate zsh)"' >> ~/.zshrc && exec zsh
 
-# プロジェクトで固定されたツール(Node.js / Supabase CLI)を導入
+# プロジェクトで固定されたツール(Node.js / Supabase CLI / Vercel CLI)を導入
 mise install
 ```
 
