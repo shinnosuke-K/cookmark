@@ -1,10 +1,12 @@
 name: Supabase keep-alive
 
-# Supabaseの無料枠は1週間非アクティブだとプロジェクトが一時停止するため、
-# 週2回(月・木)ヘルスチェック用のSELECTを実行してアクティブに保つ。
+# Supabaseの無料枠は、過去7日間のDBアクティビティが少ないとプロジェクトを一時停止する。
+# 公式ドキュメントの目安は「過去1週間、毎日数回のDBリクエスト」なので、
+# 1日2回、テーブルへのSELECTを3本ずつ送る(週2回・1本ずつでは停止を防げなかった)。
+# https://supabase.com/docs/guides/platform/free-plan-pausing
 on:
   schedule:
-    - cron: "0 0 * * 1,4" # 毎週月曜・木曜 00:00 UTC
+    - cron: "17 3,15 * * *" # 毎日 03:17 / 15:17 UTC
   workflow_dispatch: {}
 
 permissions: {}
@@ -18,22 +20,45 @@ jobs:
     name: Ping Supabase
     timeout-minutes: 5
     runs-on: ubuntu-latest
-    permissions: {}
+    permissions:
+      issues: write # 失敗時にissueを立てて気づけるようにする
     steps:
-      - name: Ping Supabase REST API
+      - name: Query Supabase tables
         env:
           # 専用の environment は作らず repository secrets をそのまま使う(個人用の小規模リポジトリのため)
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }} # zizmor: ignore[secrets-outside-env]
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }} # zizmor: ignore[secrets-outside-env]
         run: |
-          http_status=$(curl -s -o /dev/null -w "%{http_code}" \
-            "${SUPABASE_URL}/rest/v1/boards?select=id&limit=1" \
-            -H "apikey: ${SUPABASE_ANON_KEY}" \
-            -H "Authorization: Bearer ${SUPABASE_ANON_KEY}")
+          # anonキーではRLSにより0行が返るが、クエリ自体はPostgRESTからDBへ届く
+          for table in boards members recipes; do
+            http_status=$(curl -s -o /dev/null -w "%{http_code}" --retry 2 \
+              "${SUPABASE_URL}/rest/v1/${table}?select=id&limit=1" \
+              -H "apikey: ${SUPABASE_ANON_KEY}" \
+              -H "Authorization: Bearer ${SUPABASE_ANON_KEY}") || {
+              echo "${table}: curl failed (ホスト名が解決できない場合はプロジェクトが停止している可能性が高い)"
+              exit 1
+            }
 
-          echo "HTTP status: ${http_status}"
+            echo "${table}: HTTP ${http_status}"
 
-          if [ "${http_status}" -lt 200 ] || [ "${http_status}" -ge 300 ]; then
-            echo "Health check failed with status ${http_status}"
-            exit 1
+            if [ "${http_status}" -lt 200 ] || [ "${http_status}" -ge 300 ]; then
+              echo "Health check failed with status ${http_status}"
+              exit 1
+            fi
+          done
+
+      - name: Open an issue on failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          title="Supabase keep-alive が失敗しています"
+          existing=$(gh issue list --state open --search "in:title \"${title}\"" --json number --jq '.[0].number')
+          if [ -n "${existing}" ]; then
+            echo "Issue #${existing} is already open"
+            exit 0
           fi
+          gh issue create --title "${title}" \
+            --body "keep-alive の実行が失敗しました。Supabase のダッシュボードでプロジェクトが一時停止していないか確認してください。${RUN_URL}"
