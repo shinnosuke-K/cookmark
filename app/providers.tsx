@@ -11,7 +11,7 @@ import { ToastProvider, useToast } from "@/components/Toast";
 // refetchOnWindowFocus / refetchOnMount が引き続き担保する)。
 const PERSIST_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 // 永続化したキャッシュの形式を変えたときにここを上げると、古い保存分を捨てられる
-const PERSIST_BUSTER = "v1";
+const PERSIST_BUSTER = "v2";
 
 /**
  * QueryClientの生成とグローバルエラーのトースト表示。

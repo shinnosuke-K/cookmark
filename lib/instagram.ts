@@ -2,7 +2,7 @@
 // Meta公式APIは使わない方針のため、正規表現でベストエフォート抽出する(失敗しても
 // 呼び出し側は常に手動入力にフォールバックできる)。
 
-import type { RecipeCategory, Seasoning } from "./database.types";
+import type { IngredientAmount, RecipeCategory, Seasoning } from "./database.types";
 import { supabase } from "./supabase";
 
 const INSTAGRAM_URL_PATTERN = /instagram\.com\/(p|reel|reels)\/([\w-]+)/i;
@@ -45,12 +45,15 @@ export interface OgData {
   imageUrl: string;
   /** Claudeが推定したカテゴリ。構造化できなかった場合はnull。 */
   category: RecipeCategory | null;
-  /** Claudeが抜き出した主な食材。構造化できなかった場合は空配列。 */
-  ingredients: string[];
-  /** 食材ごとの分量(食材名 → 分量)。キャプションに分量の記載があった食材のみ。 */
-  ingredientAmounts: Record<string, string>;
+  /**
+   * Claudeが抜き出した主な食材と分量(調味料と同じ {name, amount} の配列)。分量の記載が
+   * 無い食材は amount が空文字。構造化できなかった場合は空配列。
+   */
+  ingredients: IngredientAmount[];
   /** 調味料と分量(記載順)。構造化できなかった場合は空配列。 */
   seasonings: Seasoning[];
+  /** 作り方の手順(作る順)。キャプションに無い、または構造化できなかった場合は空配列。 */
+  instructions: string[];
 }
 
 // サーバー側はInstagramの取得(最大5秒)のあとにClaudeでの構造化(最大8秒)を行う。

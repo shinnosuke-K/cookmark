@@ -12,6 +12,7 @@ import { useState } from "react";
 import { CategoryChips } from "@/components/CategoryChips";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { CookedSheet } from "@/components/CookedSheet";
+import { AmountList } from "@/components/AmountList";
 import { IngredientInput } from "@/components/IngredientInput";
 import { InstagramEmbed } from "@/components/InstagramEmbed";
 import { StatusBadge, VERDICT_STYLE, verdictChipStyle } from "@/components/VerdictBadge";
@@ -207,6 +208,8 @@ export default function RecipeDetailPage() {
     .join(" ・ ");
 
   const busy = updateRecipe.isPending;
+  const amountItems = pickIngredientAmounts(ingredients, recipe.ingredient_amounts) ?? [];
+  const seasonings = recipe.seasonings ?? [];
 
   return (
     <div className="ck-screen">
@@ -348,7 +351,6 @@ export default function RecipeDetailPage() {
           <IngredientInput
             boardId={recipe.board_id}
             value={ingredients}
-            amounts={recipe.ingredient_amounts}
             onChange={(next) => {
               setIngredients(next);
               setDirty(true);
@@ -357,17 +359,32 @@ export default function RecipeDetailPage() {
           />
         </div>
 
-        {recipe.seasonings && recipe.seasonings.length > 0 && (
+        {/* 分量はチップに混ぜず、調味料と横に並べて読み取り専用で出す(チップを消すとその行も消える)。 */}
+        {(amountItems.length > 0 || seasonings.length > 0) && (
+          <div className="grid grid-cols-2 gap-x-4">
+            {amountItems.length > 0 && (
+              <div>
+                <span className="ck-label">分量</span>
+                <AmountList items={amountItems} />
+              </div>
+            )}
+            {seasonings.length > 0 && (
+              <div>
+                <span className="ck-label">調味料</span>
+                <AmountList items={seasonings} />
+              </div>
+            )}
+          </div>
+        )}
+
+        {recipe.instructions && recipe.instructions.length > 0 && (
           <div>
-            <span className="ck-label">調味料</span>
-            <ul className="flex flex-wrap gap-x-4 gap-y-1 text-[15px]">
-              {recipe.seasonings.map((item, index) => (
-                <li key={index}>
-                  {item.name}
-                  {item.amount && <span className="ml-1.5 opacity-60">{item.amount}</span>}
-                </li>
+            <span className="ck-label">作り方</span>
+            <ol className="list-decimal space-y-1.5 pl-6 text-[15px] leading-relaxed marker:text-[rgba(32,30,29,.5)]">
+              {recipe.instructions.map((step, index) => (
+                <li key={index}>{step}</li>
               ))}
-            </ul>
+            </ol>
           </div>
         )}
 

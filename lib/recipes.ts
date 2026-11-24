@@ -6,7 +6,13 @@ import {
 } from "@tanstack/react-query";
 import { supabase } from "./supabase";
 import type { Member } from "./board";
-import type { Database, RecipeCategory, RecipeVerdict, Seasoning } from "./database.types";
+import type {
+  Database,
+  IngredientAmount,
+  RecipeCategory,
+  RecipeVerdict,
+  Seasoning,
+} from "./database.types";
 
 export type Recipe = Database["public"]["Tables"]["recipes"]["Row"];
 
@@ -177,10 +183,12 @@ export interface AddRecipeInput {
   postShortcode: string | null;
   /** 食材のカンマ区切り文字列。未入力ならnull。 */
   ingredients?: string | null;
-  /** 食材ごとの分量(食材名 → 分量)。Instagram自動取得で得られた場合のみ指定する。 */
-  ingredientAmounts?: Record<string, string> | null;
+  /** 食材ごとの分量({name, amount} の配列)。Instagram自動取得で得られた場合のみ指定する。 */
+  ingredientAmounts?: IngredientAmount[] | null;
   /** 調味料と分量。Instagram自動取得で得られた場合のみ指定する。 */
   seasonings?: Seasoning[] | null;
+  /** 作り方の手順(作る順)。Instagram自動取得で得られた場合のみ指定する。 */
+  instructions?: string[] | null;
   /** Instagram自動取得(ベストエフォート)のキャプションを添えて登録する場合のみ指定する。 */
   memo?: string | null;
 }
@@ -199,6 +207,7 @@ export async function addRecipe(input: AddRecipeInput): Promise<Recipe> {
       ingredients: input.ingredients ?? null,
       ingredient_amounts: input.ingredientAmounts ?? null,
       seasonings: input.seasonings ?? null,
+      instructions: input.instructions ?? null,
       memo: input.memo ?? null,
       status: "todo",
     })
@@ -333,7 +342,7 @@ export interface UpdateRecipeInput {
   /** 食材のカンマ区切り文字列。nullで未登録に戻す。undefinedなら変更しない。 */
   ingredients?: string | null;
   /** 食材ごとの分量。nullで分量なしに戻す。undefinedなら変更しない。 */
-  ingredientAmounts?: Record<string, string> | null;
+  ingredientAmounts?: IngredientAmount[] | null;
   category?: RecipeCategory | null;
   /** 写真を差し替えた場合のみ指定する。undefinedなら既存の写真を保持する。 */
   photoPath?: string;

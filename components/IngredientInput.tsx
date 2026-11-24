@@ -14,14 +14,12 @@ interface IngredientInputProps {
   boardId: string | undefined;
   value: string[];
   onChange: (next: string[]) => void;
-  /** 食材名 → 分量。あればチップの食材名に添えて表示する(表示のみで、ここでは編集しない)。 */
-  amounts?: Record<string, string> | null;
   /** ラベルの htmlFor と対応させるための入力欄のid。 */
   inputId: string;
 }
 
 /**
- * 食材のチップ入力(追加シート・詳細編集で共通)。
+ * 食材のチップ入力(詳細編集で使う)。
  * Enter・「,」・「、」で確定、チップのタップで削除、空欄でBackspaceなら直前を削除。
  * フォーカスを外したときも未確定の入力を取りこぼさず確定する。
  */
@@ -29,7 +27,6 @@ export function IngredientInput({
   boardId,
   value,
   onChange,
-  amounts,
   inputId,
 }: IngredientInputProps) {
   const [draft, setDraft] = useState("");
@@ -105,7 +102,6 @@ export function IngredientInput({
             }}
           >
             {item}
-            {amounts?.[item] && <span className="opacity-60">{amounts[item]}</span>}
             <XCircle size={15} weight="duotone" />
           </button>
         ))}

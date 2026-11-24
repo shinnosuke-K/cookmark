@@ -16,6 +16,9 @@ export interface Seasoning {
   amount: string;
 }
 
+/** 食材1件と分量。調味料と同じ形(DBの ingredient_amounts 列には分量のある食材だけを保存する)。 */
+export type IngredientAmount = Seasoning;
+
 export type RecipeStatus = "todo" | "cooked";
 export type RecipeVerdict = "repeat" | "meh";
 export type RecipeCategory = "主菜" | "副菜" | "汁物" | "麺・丼" | "おやつ";
@@ -87,10 +90,12 @@ export interface Database {
           memo: string | null;
           /** 食材。カンマ区切りの文字列。未登録はnull */
           ingredients: string | null;
-          /** 食材ごとの分量。食材名 → 分量。分量なしはnull */
-          ingredient_amounts: Record<string, string> | null;
+          /** 食材ごとの分量({name, amount} の配列、食材の並び順)。分量なしはnull */
+          ingredient_amounts: IngredientAmount[] | null;
           /** 調味料と分量(記載順)。なしはnull */
           seasonings: Seasoning[] | null;
+          /** 作り方の手順(作る順)。なしはnull */
+          instructions: string[] | null;
           photo_path: string | null;
           added_by: string;
           cooked_at: string | null;
@@ -109,8 +114,9 @@ export interface Database {
           category?: RecipeCategory | null;
           memo?: string | null;
           ingredients?: string | null;
-          ingredient_amounts?: Record<string, string> | null;
+          ingredient_amounts?: IngredientAmount[] | null;
           seasonings?: Seasoning[] | null;
+          instructions?: string[] | null;
           photo_path?: string | null;
           added_by: string;
           cooked_at?: string | null;
@@ -129,8 +135,9 @@ export interface Database {
           category?: RecipeCategory | null;
           memo?: string | null;
           ingredients?: string | null;
-          ingredient_amounts?: Record<string, string> | null;
+          ingredient_amounts?: IngredientAmount[] | null;
           seasonings?: Seasoning[] | null;
+          instructions?: string[] | null;
           photo_path?: string | null;
           added_by?: string;
           cooked_at?: string | null;
