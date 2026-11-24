@@ -112,7 +112,91 @@ supabase stop
 
 Vercelの無料枠は非商用利用に限られますが、本アプリは私用のため問題ありません。以後は `main` へのpushで自動デプロイされます(スキーマ変更を含む場合は `supabase db push` も忘れずに)。
 
-### 7. GitHub Actions のシークレットを設定する(Supabaseの自動停止対策)
+### 7. Claude APIの認証を設定する(任意)
+
+レシピを追加するとき、キャプションから料理名・カテゴリ・食材・調味料をClaude APIで抜き出します。この設定をしなくてもアプリは動きます。その場合の自動取得は、キャプションの1行目をタイトルにするだけの結果になります。
+
+認証は、ローカル開発と本番で方式が違います。
+
+| 環境 | 方式 | 置くもの |
+|---|---|---|
+| ローカル開発 | APIキー | `.env.local` の `ANTHROPIC_API_KEY` |
+| 本番(Vercel) | Workload Identity Federation(OIDC) | IDだけ。APIキーは置かない |
+
+本番にAPIキーを置かないのは、漏れたときの被害を小さくするためです。VercelはデプロイごとにOIDCトークン(署名付きの短命なJWT)を関数へ渡します。サーバーはこれをAnthropicに送り、短時間で失効するアクセストークンと交換してからClaudeを呼びます。長く有効な秘密はどこにも保存されません。
+
+#### 7-1. VercelのOIDCトークンの中身を確認する
+
+Vercel側で有効化の操作は要りません。OIDCトークンはHobbyを含む全プランで、すべてのデプロイに自動で発行されます。プロジェクトの `Settings > Security` にある OIDC Federation の発行元モードは、既定の **Team** のままにします。Anthropic側に登録する値は、このモードで決まります。
+
+| クレーム | 値の形 |
+|---|---|
+| `iss`(発行元) | `https://oidc.vercel.com/<チームslug>` |
+| `aud`(対象) | `https://vercel.com/<チームslug>` |
+| `sub`(主体) | `owner:<チームslug>:project:<プロジェクト名>:environment:<環境>` |
+
+個人アカウントでも「チームslug」はあります(アカウント名と同じ)。有効期間はproductionのトークンが2時間、開発用が12時間です。
+
+実際の値は、開発用のトークンを取得して確かめられます。出力先を指定しないと `.env.local` を上書きするので、必ず別名を指定してください。確認が済んだらファイルは削除します。
+
+```bash
+mise exec -- vercel env pull .env.vercel
+```
+
+`.env.vercel` の `VERCEL_OIDC_TOKEN` がトークンです。`.` で区切った2番目の部分をBase64デコードするとクレームが読めます。開発用トークンの `sub` は末尾が `environment:development` になります。
+
+#### 7-2. Anthropic Console で3つ作る
+
+[Claude Console](https://platform.claude.com/) のWorkload Identity Federationの設定で、次の3つを作ります。
+
+1. **発行元(Custom OIDC)**: Issuer URLに `iss` の値を登録します。**トークンの最大有効期間を2時間以上**にしてください。既定は1時間で、そのままだとVercelのproductionトークン(2時間有効)が交換時に拒否されます。
+2. **サービスアカウント**: 交換したアクセストークンが名乗る主体です。名前は任意です(例: `cookmark-vercel`)。
+3. **フェデレーションルール**: 上の発行元とサービスアカウントを結び付け、受け付けるトークンの条件を決めます。subjectに `sub` の値、audienceに `aud` の値を、どちらも完全一致で指定します。
+
+ルールのsubjectを `environment:production` まで書くのが要点です。プレビューデプロイのトークンは `environment:preview` になるので、プルリクエストのブランチに置かれたコードからは交換できません。
+
+Consoleの自動リロード(クレジットの自動購入)は無効のままにします。Maxプランに毎月付与されるクレジットを使い切ると、Claudeの呼び出しが失敗して自動取得が正規表現の結果へ戻るだけで、課金は発生しません。
+
+#### 7-3. Vercelの環境変数にIDを登録する
+
+作成後にConsoleへ表示されるIDを、Vercelプロジェクトの `Settings > Environment Variables` に登録します。
+
+| 変数名 | 値 | 必須 |
+|---|---|---|
+| `ANTHROPIC_FEDERATION_RULE_ID` | フェデレーションルールのID | 必須 |
+| `ANTHROPIC_ORGANIZATION_ID` | 組織のID(Consoleの組織設定に表示されるUUID。個人契約でも組織は1つあります) | 必須 |
+| `ANTHROPIC_SERVICE_ACCOUNT_ID` | サービスアカウントのID | 任意 |
+| `ANTHROPIC_WORKSPACE_ID` | 使うワークスペースのID | 任意 |
+
+- 環境は **Productionだけ** にチェックを入れます。PreviewとDevelopmentには登録しません
+- 種類は **Config**(保存後も値を表示できるほう)で構いません。どれも識別子であって秘密ではなく、これだけではトークンを交換できないためです
+- `ANTHROPIC_API_KEY` はVercelに登録しません
+
+CLIから登録する場合は、変数ごとに次を実行して値を入力します。
+
+```bash
+mise exec -- vercel env add ANTHROPIC_FEDERATION_RULE_ID --environment production
+```
+
+環境変数はデプロイ時に読み込まれるので、登録後に再デプロイが必要です(`main` へのpush、またはVercelのダッシュボードからRedeploy)。
+
+#### 7-4. 動作を確認する
+
+本番でInstagramのレシピURLを貼り付けて追加シートを開きます。カテゴリと食材が事前入力されれば、トークンの交換からClaudeの呼び出しまで通っています。
+
+タイトルしか入らないときは、Vercelの `Logs` で `/api/og` の出力に「レシピの構造化に失敗しました」が出ていないかを見ます。
+
+| ログの内容 | 疑うところ |
+|---|---|
+| トークンの交換(`/v1/oauth/token`)で失敗 | 発行元の最大有効期間が2時間未満、ルールのsubject / audienceの不一致、ルールIDか組織IDの誤り |
+| ログが何も出ない | 環境変数がProductionに無い、または登録後に再デプロイしていない(設定が無いとClaudeを呼ばずに終わります) |
+| Claudeの呼び出しが4xxで失敗 | クレジット切れ、ワークスペースIDの誤り |
+
+#### ローカル開発でClaudeを使う場合
+
+Consoleで発行したAPIキーを `.env.local` の `ANTHROPIC_API_KEY` に設定します。`ANTHROPIC_FEDERATION_RULE_ID` と `ANTHROPIC_ORGANIZATION_ID` の両方があるとOIDCが優先されるので、ローカルではこの2つを空のままにします。
+
+### 8. GitHub Actions のシークレットを設定する(Supabaseの自動停止対策)
 
 Supabase無料枠は1週間アクセスがないとプロジェクトが自動的に一時停止します。これを防ぐため `.github/workflows/keepalive.yml` が週2回(月・木)Supabaseへヘルスチェック用のSELECTリクエストを送ります。
 
@@ -137,5 +221,6 @@ iOSのSafari/PWAはブラウザのサイトデータを削除すると匿名認�
 - Tailwind CSS v4 — 新聞紙面風の「Broadsheet」デザイン(Source Serif 4 + Phosphor Icons duotone)
 - Serwist(PWAのインストール可能性のための最小構成のservice worker。オフラインキャッシュは行いません)
 - browser-image-compression(写真は長辺1200pxに圧縮してからアップロード)
+- Claude API(`claude-haiku-5-5`。キャプションから料理名・カテゴリ・食材・調味料を構造化。本番の認証はVercelのOIDCによるWorkload Identity Federation)
 
 詳細な仕様・設計判断は [`CLAUDE.md`](./CLAUDE.md) を参照してください。
