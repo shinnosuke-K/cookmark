@@ -129,11 +129,11 @@ Vercelの無料枠は非商用利用に限られますが、本アプリは私�
 
 Vercel側で有効化の操作は要りません。OIDCトークンはHobbyを含む全プランで、すべてのデプロイに自動で発行されます。プロジェクトの `Settings > Security` にある OIDC Federation の発行元モードは、既定の **Team** のままにします。Anthropic側に登録する値は、このモードで決まります。
 
-| クレーム | 値の形 | このプロジェクトの値 |
-|---|---|---|
-| `iss`(発行元) | `https://oidc.vercel.com/<チームslug>` | `https://oidc.vercel.com/shinnosuke-k` |
-| `aud`(対象) | `https://vercel.com/<チームslug>` | `https://vercel.com/shinnosuke-k` |
-| `sub`(主体) | `owner:<チームslug>:project:<プロジェクト名>:environment:<環境>` | `owner:shinnosuke-k:project:cookmark:environment:production` |
+| クレーム | 値の形 |
+|---|---|
+| `iss`(発行元) | `https://oidc.vercel.com/<チームslug>` |
+| `aud`(対象) | `https://vercel.com/<チームslug>` |
+| `sub`(主体) | `owner:<チームslug>:project:<プロジェクト名>:environment:<環境>` |
 
 個人アカウントでも「チームslug」はあります(アカウント名と同じ)。有効期間はproductionのトークンが2時間、開発用が12時間です。
 
