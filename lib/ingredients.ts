@@ -1,3 +1,5 @@
+import type { IngredientAmount } from "./database.types";
+
 /**
  * 食材はDBにカンマ区切りの1カラム(`recipes.ingredients`)で保存し、UIでは
  * チップの配列として扱う。ここはその相互変換と、候補チップ用の頻度集計。
@@ -54,17 +56,16 @@ export function frequentIngredients(
 }
 
 /**
- * 分量の対応表(食材名 → 分量)から、いまチップに残っている食材の分だけを取り出す。
+ * 分量の一覧から、いま残っている食材の分だけを食材の並び順で取り出す。
  * チップを消した食材の分量を保存に持ち越さないためのもの。1件も無ければnull。
  */
 export function pickIngredientAmounts(
   names: string[],
-  amounts: Record<string, string> | null | undefined,
-): Record<string, string> | null {
-  const picked: Record<string, string> = {};
-  for (const name of names) {
-    const amount = amounts?.[name];
-    if (amount) picked[name] = amount;
-  }
-  return Object.keys(picked).length > 0 ? picked : null;
+  amounts: IngredientAmount[] | null | undefined,
+): IngredientAmount[] | null {
+  const picked = names.flatMap((name) => {
+    const found = amounts?.find((item) => item.name === name && item.amount);
+    return found ? [found] : [];
+  });
+  return picked.length > 0 ? picked : null;
 }

@@ -4,7 +4,7 @@ import { ArrowSquareOut } from "@phosphor-icons/react/dist/csr/ArrowSquareOut";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CategoryChips } from "./CategoryChips";
-import { IngredientInput } from "./IngredientInput";
+import { AmountList } from "./AmountList";
 import { Sheet } from "./Sheet";
 import { useToast } from "./Toast";
 import { joinIngredients, pickIngredientAmounts } from "@/lib/ingredients";
@@ -21,7 +21,7 @@ import {
   useUpdateRecipe,
   type Recipe,
 } from "@/lib/recipes";
-import type { RecipeCategory } from "@/lib/database.types";
+import type { IngredientAmount, RecipeCategory } from "@/lib/database.types";
 
 const OG_CAPTION_MAX_LENGTH = 2000;
 
@@ -71,10 +71,9 @@ export function AddRecipeForm({
   const [category, setCategory] = useState<RecipeCategory | null>(
     initial.category,
   );
-  const [ingredients, setIngredients] = useState<string[]>([]);
-  // 自動取得で得た分量(食材名 → 分量)。チップに添えて表示し、追加確定時に
-  // チップに残っている食材の分だけ保存する。
-  const [ingredientAmounts, setIngredientAmounts] = useState<Record<string, string>>({});
+  // 食材と分量は自動取得の結果をそのまま保存する。このシートでは
+  // 読み取り専用の一覧で見せるだけで、手入力や削除は詳細画面で行う。
+  const [ingredients, setIngredients] = useState<IngredientAmount[]>([]);
   const addRecipe = useAddRecipe();
   const updateRecipe = useUpdateRecipe();
 
@@ -99,7 +98,6 @@ export function AddRecipeForm({
   const autoFilledTitleRef = useRef<string | null>(null);
   const autoFilledAuthorHandleRef = useRef<string | null>(null);
   const autoFilledCategoryRef = useRef<RecipeCategory | null>(null);
-  const autoFilledIngredientsRef = useRef<string[] | null>(null);
 
   const applyOgData = useCallback((data: OgData) => {
     ogDataRef.current = data;
@@ -129,15 +127,7 @@ export function AddRecipeForm({
       });
     }
     if (data.ingredients.length > 0) {
-      // 分量は食材名で引くだけなので、手入力の食材が優先された場合に置き換えても害はない。
-      setIngredientAmounts(data.ingredientAmounts);
-      setIngredients((prev) => {
-        const ownedByUser =
-          prev.length > 0 && prev.join("\n") !== autoFilledIngredientsRef.current?.join("\n");
-        if (ownedByUser) return prev;
-        autoFilledIngredientsRef.current = data.ingredients;
-        return data.ingredients;
-      });
+      setIngredients(data.ingredients);
     }
   }, []);
 
@@ -222,6 +212,7 @@ export function AddRecipeForm({
 
   function handleSubmit() {
     const trimmedTitle = title.trim();
+    const ingredientNames = ingredients.map((item) => item.name);
     if (!trimmedTitle) {
       toast("タイトルを入力してください");
       return;
@@ -238,10 +229,12 @@ export function AddRecipeForm({
         category,
         instagramUrl: parsed?.cleanUrl ?? null,
         postShortcode: parsed?.shortcode ?? null,
-        ingredients: joinIngredients(ingredients),
-        ingredientAmounts: pickIngredientAmounts(ingredients, ingredientAmounts),
-        // 調味料はフォームには出さず、キャプションと同じく自動取得の結果をそのまま保存する。
+        // DBでは、食材名を検索用のカンマ区切りの列に、分量のある食材だけを別の列に持つ。
+        ingredients: joinIngredients(ingredientNames),
+        ingredientAmounts: pickIngredientAmounts(ingredientNames, ingredients),
+        // 調味料と作り方はフォームには出さず、キャプションと同じく自動取得の結果をそのまま保存する。
         seasonings: ogData?.seasonings.length ? ogData.seasonings : null,
+        instructions: ogData?.instructions.length ? ogData.instructions : null,
         memo: ogData?.caption
           ? truncateToCodePoints(ogData.caption, OG_CAPTION_MAX_LENGTH)
           : null,
@@ -336,18 +329,12 @@ export function AddRecipeForm({
           />
         </div>
 
-        <div>
-          <label className="ck-label" htmlFor="add-ingredients">
-            食材(任意)
-          </label>
-          <IngredientInput
-            boardId={boardId}
-            value={ingredients}
-            onChange={setIngredients}
-            amounts={ingredientAmounts}
-            inputId="add-ingredients"
-          />
-        </div>
+        {ingredients.length > 0 && (
+          <div>
+            <span className="ck-label">食材</span>
+            <AmountList items={ingredients} />
+          </div>
+        )}
 
         <div>
           <label className="ck-label" htmlFor="add-handle">
